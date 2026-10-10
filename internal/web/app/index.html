@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SoundWaves</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231b1d22'/%3E%3Cpath d='M4 16c3-9 5-9 8 0s5 9 8 0 5-9 8 0' fill='none' stroke='%234fa3ff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+  <!-- dockview injects its own styles on import; app.css comes AFTER in the
+       cascade because the module runs once the sheet is in place. -->
+  <link rel="stylesheet" href="styles/app.css">
+  <link rel="stylesheet" href="styles/viewport.css">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <span class="brand">SoundWaves</span>
+      <select data-role="project" title="The open scene: one of your saved projects, or the unsaved one"></select>
+      <button type="button" class="button" data-role="open" title="Open an example or a .sw file from your computer">Open</button>
+      <button type="button" class="button" data-role="save" title="Save the scene: to your account when signed in, as a download otherwise (Ctrl/Cmd+S)">Save</button>
+      <button type="button" class="button quiet" data-role="download" title="Download the scene as a .sw file">↓</button>
+      <span class="sep"></span>
+      <button type="button" class="button" data-role="mesh" title="Triangulate the scene at the resolution set by fmax and nodes per wavelength">Mesh</button>
+      <button type="button" class="button primary" data-role="run" title="Run or pause the time-domain simulation (Space in the viewport)">▶ Run</button>
+      <button type="button" class="button" data-role="reset" title="Back to t = 0, same mesh">Reset</button>
+      <span class="mono" data-role="time" title="Simulated time / duration">t = 0 ms</span>
+      <label class="soft" title="Simulation steps per displayed frame; max runs as fast as it can and shows what it can">speed
+        <select data-role="speed">
+          <option value="1">×1</option>
+          <option value="5" selected>×5</option>
+          <option value="20">×20</option>
+          <option value="100">×100</option>
+          <option value="0">max</option>
+        </select>
+      </label>
+      <span class="space"></span>
+      <span class="mono soft" data-role="stats" title="Mesh size and stepping rate"></span>
+      <button type="button" class="button" data-role="reset-layout" title="Put the panels back where they started">Reset layout</button>
+      <button type="button" class="button" data-role="account" title="Sign in to keep your scenes on this server" hidden>Sign in</button>
+    </header>
+    <main id="docks"></main>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

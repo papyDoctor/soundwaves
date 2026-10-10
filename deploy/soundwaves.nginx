@@ -1,0 +1,27 @@
+# Reference copy of /etc/nginx/sites-available/soundwaves.
+#
+# nginx terminates TLS; the Go service only sees plain requests on
+# 127.0.0.1:8090 and needs no privilege. setup.sh installs this file ONCE and
+# runs certbot, which rewrites it with the TLS block and the 80 -> 443
+# redirect: deploy.sh never touches it again, or the certificate would break.
+#
+# The app's modules and wasm are served by Go, which sets their types and
+# cache headers itself (.mjs, .wasm, .sw); nothing here depends on nginx's
+# mime table.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name SW_DOMAIN;
+
+    # A scene text is at most 1 MiB; leave room for the JSON around it.
+    client_max_body_size 4m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8090;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

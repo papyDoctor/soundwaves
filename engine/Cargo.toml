@@ -1,0 +1,34 @@
+[package]
+name = "engine"
+version = "0.1.0"
+edition = "2021"
+description = "SoundWaves FEM engine: 2D mesher, P1 assembly, explicit time stepping"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Constrained Delaunay triangulation with Ruppert-style refinement. Pinned: the
+# mesher touches a handful of its APIs, and a silent upgrade could move them.
+spade = "=2.15.0"
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[features]
+default = ["console_error_panic_hook"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+# wasm-opt would download binaryen on first use; the gain is size, not speed
+# that we would notice. Off until the build pipeline is stable.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false

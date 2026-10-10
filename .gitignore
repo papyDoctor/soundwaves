@@ -1,0 +1,18 @@
+# Binaries
+/build/
+/soundwaves
+
+# Rust
+/engine/target/
+
+# Local working context
+.claude/
+
+# Environment
+.env
+
+# macOS
+.DS_Store
+
+# Deploy scratch
+/.deploy-tmp*

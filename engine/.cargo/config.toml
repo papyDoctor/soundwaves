@@ -1,0 +1,5 @@
+# 64 MiB of linear memory from the start: a 300k-node mesh plus spade's
+# transient structures fit without growing, and growth detaches the typed-array
+# views the worker holds on wasm memory.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=--initial-memory=67108864"]

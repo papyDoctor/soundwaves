@@ -1,0 +1,49 @@
+# /etc/systemd/system/soundwaves.service
+#
+# The service runs as a dedicated user, no shell, no rights: a hole in a web
+# service must not hand over the machine. Secrets live in /etc/soundwaves/env,
+# 0600 and owned by root: the service reads them at start-up, its own user
+# cannot read the file back.
+
+[Unit]
+Description=SoundWaves — acoustic simulator web service
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=soundwaves
+Group=soundwaves
+EnvironmentFile=/etc/soundwaves/env
+ExecStart=/opt/soundwaves/soundwaves
+Restart=always
+RestartSec=2
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Containment: each line removes something; together they turn arbitrary code
+# execution into a dead end.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+ReadOnlyPaths=/opt/soundwaves
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

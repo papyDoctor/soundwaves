@@ -1,0 +1,208 @@
+/* SoundWaves — a one-window workshop. Dark theme, Godot-like: an editor you
+   stare at for hours must not glare. One sheet for the shell; the viewport
+   has its own. */
+
+:root {
+  --bg: #1b1d22;
+  --bg-2: #22252b;
+  --bg-3: #2a2e35;
+  --line: #383c45;
+  --text: #e4e6ea;
+  --text-2: #9aa0ab;
+  --accent: #4fa3ff;
+  --green: #3ec281;
+  --red: #e5534b;
+  --yellow: #e2b93d;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --bar-h: 40px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 var(--font);
+  overflow: hidden;           /* the window never scrolls: the panels do */
+}
+
+#app { display: grid; grid-template-rows: var(--bar-h) 1fr; height: 100%; }
+
+/* ------------------------------------------------------------------------- */
+/* The top bar: scene, mesh, run, time.                                      */
+/* ------------------------------------------------------------------------- */
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+#topbar .brand { font-weight: 650; color: var(--text); margin-right: 0.5rem; }
+#topbar .space { flex: 1; }
+#topbar .sep { width: 1px; height: 1.4rem; background: var(--line); margin: 0 0.3rem; }
+.soft { color: var(--text-2); font-size: 12px; }
+.mono { font-family: var(--mono); font-size: 12px; }
+#topbar label { display: inline-flex; align-items: center; gap: 0.3rem; }
+
+.button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.button:hover { border-color: var(--accent); }
+.button.primary { background: var(--green); border-color: var(--green); color: #08150f; font-weight: 600; }
+.button.danger { background: var(--red); border-color: var(--red); color: #fff; }
+.button.armed { background: var(--red); border-color: var(--red); color: #fff; }
+.button.quiet { background: none; }
+.button.small { padding: 0 0.4rem; line-height: 1.3; }
+.button.on { border-color: var(--accent); color: var(--accent); }
+.button[disabled] { opacity: 0.5; cursor: default; }
+
+/* ------------------------------------------------------------------------- */
+/* The docks. dockview provides the mechanics; we give it our colours.       */
+/* ------------------------------------------------------------------------- */
+
+#docks { height: 100%; min-height: 0; }
+
+.dockview-theme-dark {
+  --dv-background-color: var(--bg);
+  --dv-paneview-active-outline-color: var(--accent);
+  --dv-tabs-and-actions-container-background-color: var(--bg-2);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-2);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-2);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-2);
+  --dv-tab-divider-color: var(--line);
+  --dv-activegroup-visiblepanel-tab-color: var(--text);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-2);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-2);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-2);
+  --dv-separator-border: var(--line);
+  --dv-paneview-header-border-color: var(--line);
+  --dv-group-view-background-color: var(--bg);
+  --dv-tabs-container-scrollbar-color: var(--line);
+  --dv-icon-hover-background-color: var(--bg-3);
+  --dv-drag-over-background-color: rgba(79, 163, 255, 0.18);
+  --dv-drag-over-border-color: var(--accent);
+  --dv-tab-font-size: 12px;
+}
+
+/* A panel's content scrolls itself, never the page. */
+.panel { height: 100%; overflow: auto; padding: 0.5rem 0.65rem; }
+.panel.flush { padding: 0; }
+.panel h2 { margin: 0 0 0.5rem; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); }
+.panel .empty { color: var(--text-2); font-style: italic; }
+
+/* ------------------------------------------------------------------------- */
+/* The scene tree: rows, a chevron, an icon.                                 */
+/* ------------------------------------------------------------------------- */
+
+.tree, .tree ul { list-style: none; margin: 0; padding: 0; }
+.tree ul { padding-left: 0.9rem; }
+.tree .node {
+  display: flex; align-items: center; gap: 0.35rem;
+  padding: 0.15rem 0.5rem 0.15rem 0.4rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: default; user-select: none;
+}
+.tree .node:hover { background: var(--bg-3); }
+.tree .node.selected { background: color-mix(in srgb, var(--accent) 28%, var(--bg)); color: #fff; }
+.tree .fold { width: 0.9rem; flex: none; text-align: center; color: var(--text-2); font-size: 11px; }
+.tree .icon { flex: none; display: inline-flex; color: var(--text-2); }
+.tree .node.selected .icon, .tree .node.selected .fold { color: #fff; }
+.tree .label { overflow: hidden; text-overflow: ellipsis; }
+.tree .badge {
+  margin-left: auto; padding: 0 0.35rem; border-radius: 3px;
+  background: var(--bg-3); color: var(--text-2); font-size: 10px; text-transform: uppercase;
+}
+.tree .node .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.tree li.empty { padding: 0.2rem 0.6rem; }
+
+/* ------------------------------------------------------------------------- */
+/* The inspector: cards.                                                     */
+/* ------------------------------------------------------------------------- */
+
+.card { display: flex; flex-direction: column; gap: 0.35rem; }
+.card-head { margin-bottom: 0.4rem; }
+.card-head .type { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); }
+.card-head h3 { margin: 0; font-size: 15px; font-weight: 600; word-break: break-all; }
+.card h4 { margin: 0.7rem 0 0.2rem; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); }
+
+.field { display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem; font-size: 12.5px; }
+.field .name { color: var(--text-2); }
+.field .value { word-break: break-word; }
+
+.row { display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem; align-items: center; font-size: 12.5px; }
+.row .name { color: var(--text-2); }
+.card input[type="text"], .card input[type="number"], .card select, #topbar select, .panel-bar input, .panel-bar select {
+  font: inherit; font-size: 12.5px;
+  padding: 0.2rem 0.4rem;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 4px;
+}
+.card input:focus, .card select:focus, #topbar select:focus { outline: none; border-color: var(--accent); }
+.card input[type="checkbox"] { accent-color: var(--green); }
+.card input[type="number"] { width: 100%; }
+.pair { display: inline-flex; gap: 0.3rem; }
+.pair input { min-width: 0; }
+
+table.list { border-collapse: collapse; font-size: 12px; width: 100%; }
+table.list th { text-align: left; font-weight: 500; color: var(--text-2); padding: 0.15rem 0.25rem; border-bottom: 1px solid var(--line); }
+table.list td { padding: 0.15rem 0.25rem; white-space: nowrap; }
+table.list input[type="number"] { width: 5rem; }
+table.list select { max-width: 7.5rem; }
+.card-actions { margin-top: 0.6rem; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.msg { margin: 0.4rem 0 0; padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 12.5px; }
+.msg.ok { background: color-mix(in srgb, var(--green) 18%, var(--bg)); color: var(--green); }
+.msg.error { background: color-mix(in srgb, var(--red) 18%, var(--bg)); color: #ffb4ae; }
+.msg.warning { background: color-mix(in srgb, var(--yellow) 18%, var(--bg)); color: var(--yellow); }
+.note { margin: 0.6rem 0 0; font-size: 12px; color: var(--text-2); }
+.card canvas.sparkline { width: 100%; height: 48px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+
+/* Output: entries, newest first. */
+.output-panel { display: flex; flex-direction: column; }
+.output-head { display: flex; align-items: center; justify-content: space-between; }
+.output-head h2 { margin: 0; }
+.output-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.output-entry { border-left: 3px solid var(--line); padding: 0.2rem 0 0.3rem 0.6rem; }
+.output-entry.ok { border-left-color: var(--green); }
+.output-entry.error { border-left-color: var(--red); }
+.output-entry.warning { border-left-color: var(--yellow); }
+.output-entry header { font-size: 12px; margin-bottom: 0.3rem; }
+.output-entry time { color: var(--text-2); font-family: var(--mono); font-size: 11px; }
+.output-entry p { margin: 0.2rem 0; font-size: 12px; }
+.output-entry pre { margin: 0.2rem 0 0; font: 11px/1.4 var(--mono); white-space: pre-wrap; color: var(--text-2); }
+.output-entry table { border-collapse: collapse; font: 11px/1.4 var(--mono); }
+.output-entry td { padding: 0 0.6rem 0 0; }
+.line-link { background: none; border: none; padding: 0; color: var(--accent); font: 12px var(--mono); cursor: pointer; text-decoration: underline; }
+
+/* A question in the page: dimmed backdrop, a box in the middle. */
+.dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0008; }
+.dialog { width: min(28rem, calc(100vw - 2rem)); background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; box-shadow: 0 10px 40px #0009; }
+.dialog h3 { margin: 0 0 0.4rem; font-size: 15px; }
+.dialog p { margin: 0 0 1rem; color: var(--text-2); }
+.dialog-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+/* A panel with a bar on top and content below (scene text, probes). */
+.bar-panel { display: flex; flex-direction: column; overflow: hidden; }
+.panel-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--line); background: var(--bg-2); font-size: 12px; min-height: 2rem; flex: none; }
+.panel-bar .space { flex: 1; }
+.panel-bar .message.ok { color: var(--green); }
+.panel-bar .message.error { color: #ffb4ae; }
+.panel-bar .dot { color: var(--yellow); }
+.panel-body { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+.panel-body .cm-editor { height: 100%; }
+.panel-body .empty { padding: 0.6rem; }
+.panel-body canvas { display: block; width: 100%; height: 100%; }
