@@ -7,6 +7,7 @@
  * step, point probes first, then the rings') and accumulate until Reset.
  */
 import { lut } from "../sim/colormap.js";
+import { spectrum as sourceSpectrum } from "../scene/signals.js";
 
 const COLORS = ["#4fd0e0", "#f0a040", "#c792ea", "#3ec281", "#e5534b", "#e2b93d", "#82aaff", "#ff9cac"];
 
@@ -233,6 +234,11 @@ export function mountProbes(element, state) {
       mapCache = { key, rows };
     }
     const rows = mapCache.rows;
+    // The source's own level at each frequency: where it is weak, the row is
+    // noise, not physics. All sources and pistons together, loudest counts.
+    const sources = [...scene.sources.map((s) => s.signal), ...scene.materials.filter((m) => m.kind === "piston" && m.signal).map((m) => m.signal)];
+    const srcLevel = rows.map(() => 0);
+    for (const sig of sources) { const { rel } = sourceSpectrum(sig, 1, Math.max(fmax, 4 * sig.f0), 300); const top = Math.max(...rel); rows.forEach((r, k) => { const i = Math.min(299, Math.round((r.f - 1) / (Math.max(fmax, 4 * sig.f0) - 1) * 299)); srcLevel[k] = Math.max(srcLevel[k], rel[i] / top); }); }
     const L = 52, R = 70, T = 10, B = 24;
     const cw = (W - L - R) / pts.length, ch = (H - T - B) / NF;
     const lutData = lut("viridis");
@@ -244,6 +250,13 @@ export function mountProbes(element, state) {
         ctx.fillRect(L + j * cw, y, Math.ceil(cw), Math.ceil(ch));
       });
     }
+    // Grey out the rows where the source is more than 20 dB below its peak.
+    for (let k = 0; k < NF; k++) {
+      if (sources.length && srcLevel[k] < 0.1) { ctx.fillStyle = "#1b1d22cc"; ctx.fillRect(L, H - B - (k + 1) * ch, W - L - R, Math.ceil(ch)); }
+    }
+    // The source level, as a bar per row, between the map and the colour bar.
+    ctx.fillStyle = "#82aaff";
+    for (let k = 0; k < NF; k++) { const db = Math.max(-40, 20 * Math.log10(Math.max(srcLevel[k], 1e-9))); ctx.fillRect(W - R + 2, H - B - (k + 1) * ch, 8 * (1 + db / 40), Math.ceil(ch)); }
     ctx.fillStyle = "#9aa0ab"; ctx.font = "10px ui-monospace, monospace";
     for (let k = 0; k < NF; k += Math.max(1, Math.round(NF / 6))) ctx.fillText(`${rows[k].f.toFixed(0)} Hz`, 2, H - B - (k + 0.5) * ch + 3);
     const step = Math.max(1, Math.round(pts.length / 8));
@@ -251,7 +264,8 @@ export function mountProbes(element, state) {
     // The colour bar.
     for (let i = 0; i < 100; i++) { const t = Math.round(255 * i / 99); ctx.fillStyle = `rgb(${lutData[t * 4]},${lutData[t * 4 + 1]},${lutData[t * 4 + 2]})`; ctx.fillRect(W - R + 14, H - B - (i + 1) * (H - T - B) / 100, 10, Math.ceil((H - T - B) / 100)); }
     ctx.fillStyle = "#9aa0ab"; ctx.fillText("0 dB", W - R + 28, T + 10); ctx.fillText(`${FLOOR} dB`, W - R + 28, H - B);
-    info.textContent = `${g.id}: |P| per frequency, each row normalized to its loudest angle · ${pts.length} probes · ${NF} frequencies`;
+    const weak = srcLevel.filter((v) => v < 0.1).length;
+    info.textContent = `${g.id}: |P| per frequency, each row normalized to its loudest angle · ${pts.length} probes · ${NF} frequencies` + (weak ? ` · ${weak} rows greyed: source below −20 dB there (thin blue bar = source level)` : "");
   }
 
   function draw() { if (view === "pattern") drawPattern(); else if (view === "map") drawMap(); else drawSignals(); }

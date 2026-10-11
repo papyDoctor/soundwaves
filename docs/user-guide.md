@@ -146,10 +146,16 @@ Signals, with their options:
 | `burst` | `cycles` periods of a sine under a smooth window. | `f0`, `amp`, `cycles`, `t0` |
 | `sine` | A continuous sine, with a two-period ramp-in. For steady-state patterns. | `f0`, `amp`, `t0` |
 
-`f0` is the signal's frequency; **`fmax` is the simulation's resolution** (next
-section) and must cover the signal's content: about 1.5 × f0 for a sine or
-burst, 2.5 × f0 for a pulse. Too low, the high components travel at the wrong
-speed and trail oscillations behind the front; too high only costs time.
+`f0` is the signal's centre frequency, but a pulse covers a band: the
+Inspector's signal card draws the spectrum and gives the band within 6 dB and
+within 20 dB of the peak. For a `ricker` at f0 they are about 0.5–1.6 f0 and
+0.2–2.2 f0; a `gauss` goes from 0 Hz up to 0.8 f0 (−6 dB) or 1.5 f0 (−20 dB);
+a `burst` of n cycles is about f0 ± f0/n.
+
+**`fmax` is the simulation's resolution** (next section) and must cover the
+signal's content: the card warns when the −20 dB band reaches above fmax. Too
+low, the high components travel at the wrong speed and trail oscillations
+behind the front; too high only costs time.
 
 ## 7. Simulation settings
 
@@ -195,7 +201,10 @@ across, frequency up, colour the level in dB relative to the loudest angle at
 that frequency (floor −30 dB). It is the tool for a frequency sweep: one run
 with a broadband pulse, a `duration` long enough for the pulse to leave the
 scene, `fmax` at least 2.5 times the top of the band, and the band set under
-the map. `megaphone.sw` does this for the voice band, 500 to 3500 Hz.
+the map. A thin blue bar on the right shows the source's own level at each
+frequency, and rows where it is more than 20 dB below its peak are greyed:
+there the map is noise, not physics; move `f0` or widen the pulse.
+`megaphone.sw` does this for the voice band, 500 to 3500 Hz.
 
 ## 9. Axisymmetric mode
 
