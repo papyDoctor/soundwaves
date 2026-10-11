@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	soundwaves "soundwaves"
@@ -66,6 +67,37 @@ func (s *Server) routesApp() {
 		w.Header().Set("Cache-Control", "no-cache")
 		examples.ServeHTTP(w, r)
 	})
+
+	// Personal scenes from a directory on disk (SW_PERSO_DIR): the listing at
+	// /perso/, the files under it. Absent in production.
+	if d := s.cfg.PersoDir; d != "" {
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			perso := http.StripPrefix("/perso/", http.FileServerFS(os.DirFS(d)))
+			s.mux.HandleFunc("GET /perso/{$}", func(w http.ResponseWriter, r *http.Request) {
+				entries, err := os.ReadDir(d)
+				if err != nil {
+					s.fail(w, r, err)
+					return
+				}
+				names := []string{}
+				for _, e := range entries {
+					if !e.IsDir() && strings.HasSuffix(e.Name(), ".sw") {
+						names = append(names, e.Name())
+					}
+				}
+				sort.Strings(names)
+				w.Header().Set("Cache-Control", "no-store")
+				writeJSON(w, http.StatusOK, names)
+			})
+			s.mux.HandleFunc("GET /perso/{file}", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Cache-Control", "no-cache")
+				perso.ServeHTTP(w, r)
+			})
+			slog.Info("personal scenes served from disk", "dir", d)
+		} else {
+			slog.Warn("SW_PERSO_DIR missing", "dir", d)
+		}
+	}
 
 	s.mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path

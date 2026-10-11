@@ -73,6 +73,7 @@ Layout:
 - `internal/web/app/` — the web app: one HTML page, ES modules served as is, two vendored libraries (dockview, CodeMirror, see `vendor/VENDOR.md`).
 - `cmd/soundwaves`, `internal/` — the Go server: the app, shared links, accounts, projects.
 - `examples/` — scene files and the menu's `index.json`, served and embedded.
+- `perso/` — your own scenes, git-ignored: `make dev` lists them under Open › perso.
 - `deploy/` — systemd unit, nginx site, install and release scripts.
 - `tools/smoke.mjs` — the headless-browser harness used by `make smoke`.
 

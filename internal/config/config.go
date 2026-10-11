@@ -24,6 +24,9 @@ type Config struct {
 	AppDir string
 	// Same for the example scenes (the repository's examples/ directory).
 	ExamplesDir string
+	// A directory of personal scenes, listed in the Open dialog as "perso",
+	// never embedded: development only, and git-ignored.
+	PersoDir string
 
 	// Development mode: offers the "dev" sign-in that creates a local account
 	// from a typed name, with no identity provider. Off in production.
@@ -47,6 +50,7 @@ func Load() *Config {
 		DatabaseURL:     os.Getenv("SW_DATABASE_URL"),
 		AppDir:          os.Getenv("SW_APP_DIR"),
 		ExamplesDir:     os.Getenv("SW_EXAMPLES_DIR"),
+		PersoDir:        os.Getenv("SW_PERSO_DIR"),
 		Dev:             envBool("SW_DEV", true),
 		MaxProjects:     envInt("SW_MAX_PROJECTS", 200),
 		MaxProjectBytes: envInt("SW_MAX_PROJECT_BYTES", 1<<20),

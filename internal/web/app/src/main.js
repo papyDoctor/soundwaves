@@ -144,6 +144,11 @@ async function start() {
       for (const ex of EXAMPLES) { const o = document.createElement("option"); o.value = "example:" + ex.file; o.textContent = `example · ${ex.title}`; pick.append(o); }
       for (const p of state.projects || []) { const o = document.createElement("option"); o.value = "project:" + p.id; o.textContent = `mine · ${p.name}`; pick.append(o); }
       for (const name of state.library.names()) { const o = document.createElement("option"); o.value = "local:" + name; o.textContent = `this browser · ${name}`; pick.append(o); }
+      // Personal scenes, when the server has a perso/ directory (development).
+      try {
+        const r = await fetch("perso/", { cache: "no-store" });
+        if (r.ok) for (const name of await r.json()) { const o = document.createElement("option"); o.value = "perso:" + name; o.textContent = `perso · ${name}`; pick.append(o); }
+      } catch {}
       const file = document.createElement("input"); file.type = "file"; file.accept = ".sw,text/plain"; file.style.marginTop = "0.5rem";
       content.append(pick, file);
       const choice = await ask({ title: "Open a scene", text: "Unsaved changes to the current scene are lost.", content,
@@ -153,6 +158,7 @@ async function start() {
       if (file.files[0]) loadScene(await file.files[0].text(), file.files[0].name);
       else if (pick.value.startsWith("project:")) await actions.openProject(Number(pick.value.slice(8)));
       else if (pick.value.startsWith("local:")) actions.openLocal(pick.value.slice(6));
+      else if (pick.value.startsWith("perso:")) { const f = pick.value.slice(6); const r = await fetch(`perso/${f}`, { cache: "no-store" }); loadScene(await r.text(), f); }
       else { const ex = pick.value.slice(8); const r = await fetch(`examples/${ex}`); loadScene(await r.text(), ex); }
     },
     download() {
