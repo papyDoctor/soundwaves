@@ -9,7 +9,7 @@ import { parse, serialize } from "../src/scene/format.js";
 
 const wasmBytes = await readFile(new URL("../wasm/engine_bg.wasm", import.meta.url));
 await init({ module_or_path: wasmBytes });
-const dir = new URL("../examples/", import.meta.url);
+const dir = new URL("../../../../examples/", import.meta.url);
 const index = JSON.parse(await readFile(new URL("index.json", dir), "utf8"));
 
 test("every example is in the menu, and the menu names existing files", async () => {

@@ -128,4 +128,4 @@ Layout:
 - `engine/` — the Rust crate: mesher (spade), P1 assembly, explicit leapfrog time stepping.
 - `internal/web/app/` — the web app: one HTML page, ES modules served as is, two vendored libraries (dockview, CodeMirror). No npm, no build step.
 - `cmd/soundwaves`, `internal/web` — the Go server. For now it only serves the app; accounts and saved projects come later.
-- `examples/` — scene files (`.sw`).
+- `examples/` — scene files (`.sw`) and the menu's `index.json`; served by the Go server and embedded in the binary.

@@ -35,7 +35,7 @@ run:
 # SW_APP_DIR: the web app is served from disk, so editing JavaScript needs no
 # Go restart — reload the page. In production it is the copy embedded in the binary.
 dev:
-	SW_ADDR=$(ADDR) SW_APP_DIR=$(APP) go run ./cmd/soundwaves
+	SW_ADDR=$(ADDR) SW_APP_DIR=$(APP) SW_EXAMPLES_DIR=examples go run ./cmd/soundwaves
 
 # The full loop without Docker: the machine's Postgres (Postgres.app, brew) and
 # the "dev" sign-in. Same binary and same schema as production.
@@ -43,7 +43,7 @@ DEV_DB ?= soundwaves_dev
 DEV_DB_URL ?= postgres://$(USER)@localhost:5432/$(DEV_DB)?sslmode=disable
 dev-db:
 	@createdb $(DEV_DB) 2>/dev/null || true
-	SW_ADDR=$(ADDR) SW_DATABASE_URL="$(DEV_DB_URL)" SW_APP_DIR=$(APP) go run ./cmd/soundwaves
+	SW_ADDR=$(ADDR) SW_DATABASE_URL="$(DEV_DB_URL)" SW_APP_DIR=$(APP) SW_EXAMPLES_DIR=examples go run ./cmd/soundwaves
 
 # --no-pack: no package.json, this is not an npm package. --target web: a plain
 # ES module with a default `init()` that fetches engine_bg.wasm next to it.

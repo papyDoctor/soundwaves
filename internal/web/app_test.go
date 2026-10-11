@@ -18,6 +18,8 @@ func TestAppRoutes(t *testing.T) {
 		{"/", http.StatusOK},
 		{"/src/main.js", http.StatusOK},
 		{"/examples/room.sw", http.StatusOK},
+		{"/examples/index.json", http.StatusOK},
+		{"/examples/nope.sw", http.StatusNotFound},
 		{"/src/", http.StatusNotFound},
 		{"/nope.js", http.StatusNotFound},
 	} {

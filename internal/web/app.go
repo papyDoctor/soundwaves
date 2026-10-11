@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	soundwaves "soundwaves"
 )
 
 /*
@@ -38,9 +40,32 @@ func (s *Server) appSources() fs.FS {
 	return sub
 }
 
+// examplesSources: the repository's examples/ on disk when SW_EXAMPLES_DIR is
+// set, the embedded copy otherwise.
+func (s *Server) examplesSources() fs.FS {
+	if d := s.cfg.ExamplesDir; d != "" {
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			return os.DirFS(d)
+		}
+		slog.Warn("SW_EXAMPLES_DIR missing, serving the embedded examples", "dir", d)
+	}
+	sub, err := fs.Sub(soundwaves.Examples, "examples")
+	if err != nil {
+		panic(err)
+	}
+	return sub
+}
+
 func (s *Server) routesApp() {
 	fsys := s.appSources()
 	files := http.FileServerFS(fsys)
+
+	// The example scenes live at the root of the repository, not in the app.
+	examples := http.StripPrefix("/examples/", http.FileServerFS(s.examplesSources()))
+	s.mux.HandleFunc("GET /examples/{file}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		examples.ServeHTTP(w, r)
+	})
 
 	s.mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
