@@ -26,7 +26,8 @@ import { api } from "./api.js";
 import { Library } from "./scene/library.js";
 
 const DRAFT = "sw.draft.v1";
-const EXAMPLES = ["room.sw", "hall_half.sw", "tube_axisym.sw", "horn.sw"];
+// The examples menu comes from examples/index.json: {file, title} entries.
+let EXAMPLES = [];
 
 /** Make `text` the scene. Parse errors are reported but what parsed is kept.
     `project` is the server record it came from ({id, version, etag}), if any. */
@@ -67,6 +68,8 @@ async function start() {
     (r) => state.output.ok("Engine loaded", r.version),
     (e) => state.output.error("Engine failed to load", e.message),
   );
+
+  try { EXAMPLES = await (await fetch("examples/index.json")).json(); } catch { EXAMPLES = [{ file: "room.sw", title: "room" }]; }
 
   // The scene before the panels, so they have something to draw.
   let draft = null;
@@ -138,7 +141,7 @@ async function start() {
       const content = document.createElement("div");
       content.innerHTML = `<p class="note">Pick an example${state.session?.account ? " or one of your projects" : ""}, or a .sw file from your computer.</p>`;
       const pick = document.createElement("select");
-      for (const ex of EXAMPLES) { const o = document.createElement("option"); o.value = "example:" + ex; o.textContent = `example · ${ex}`; pick.append(o); }
+      for (const ex of EXAMPLES) { const o = document.createElement("option"); o.value = "example:" + ex.file; o.textContent = `example · ${ex.title}`; pick.append(o); }
       for (const p of state.projects || []) { const o = document.createElement("option"); o.value = "project:" + p.id; o.textContent = `mine · ${p.name}`; pick.append(o); }
       for (const name of state.library.names()) { const o = document.createElement("option"); o.value = "local:" + name; o.textContent = `this browser · ${name}`; pick.append(o); }
       const file = document.createElement("input"); file.type = "file"; file.accept = ".sw,text/plain"; file.style.marginTop = "0.5rem";

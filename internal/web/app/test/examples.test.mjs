@@ -10,6 +10,13 @@ import { parse, serialize } from "../src/scene/format.js";
 const wasmBytes = await readFile(new URL("../wasm/engine_bg.wasm", import.meta.url));
 await init({ module_or_path: wasmBytes });
 const dir = new URL("../examples/", import.meta.url);
+const index = JSON.parse(await readFile(new URL("index.json", dir), "utf8"));
+
+test("every example is in the menu, and the menu names existing files", async () => {
+  const files = (await readdir(dir)).filter((f) => f.endsWith(".sw")).sort();
+  assert.deepEqual(index.map((e) => e.file).sort(), files);
+  for (const e of index) assert.ok(e.title.length > 5, e.file);
+});
 
 for (const file of (await readdir(dir)).filter((f) => f.endsWith(".sw"))) {
   test(`example ${file} parses, meshes and runs`, async () => {
@@ -19,7 +26,7 @@ for (const file of (await readdir(dir)).filter((f) => f.endsWith(".sw"))) {
     assert.equal(serialize(parse(serialize(scene)).scene), serialize(scene), `${file}: round trip`);
     const sim = new Simulation(JSON.stringify(scene.toEngineJson()));
     const stats = JSON.parse(sim.mesh());
-    assert.ok(stats.nodes > 100, `${file}: only ${stats.nodes} nodes`);
+    assert.ok(stats.nodes > 100 && stats.nodes < 200000, `${file}: ${stats.nodes} nodes`);
     assert.ok(stats.minAngle > 20, `${file}: min angle ${stats.minAngle}`);
     assert.ok(stats.refinementComplete, `${file}: refinement incomplete`);
     const prep = JSON.parse(sim.prepare());
