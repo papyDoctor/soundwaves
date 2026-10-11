@@ -78,11 +78,26 @@ terms with the normalized impedance `zeta` (open: 1, absorb: `(1+R)/(1-R)` with
 edge is recognised automatically. Frequency-domain and eigenmode solvers are
 the next step: the matrices are already assembled on one shared pattern.
 
+## Saving
+
+Three ways, none of which needs the others:
+
+- **Files**: the ↓ button downloads the scene as `.sw`, Open reads one back.
+- **This browser**: Save without an account keeps the scene by name in the
+  browser's storage; Open lists them. Handy, not a vault.
+- **A link**: Share puts the scene on the server behind an anonymous address
+  (`/?s=…`) anyone can open; the browser that made it keeps the key and can
+  update it with Share again. Links unopened for a year are dropped.
+
+An account (Google or GitHub) adds a project list that follows you across
+devices, with conflict detection between tabs.
+
 ## Server
 
 Without `SW_DATABASE_URL` the binary serves the app and nothing else: scenes
-are downloaded and opened as files. With it, accounts and projects live in
-Postgres (migrations embedded, applied at start-up). Sign-in is by Google
+are downloaded and opened as files, nothing else is offered. With it, shared
+links, accounts and projects live in Postgres (migrations embedded, applied
+at start-up). Sign-in is by Google
 (OpenID Connect) or GitHub (OAuth 2.0 with PKCE), whichever has a client id in
 the environment; the same verified address joins the two into one account.
 `SW_DEV=true` adds the development sign-in by name. `SW_APP_DIR` serves the app

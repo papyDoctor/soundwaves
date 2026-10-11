@@ -221,3 +221,101 @@ func (s *Server) projectDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// ---------------------------------------------------------------------------
+// Anonymous shares: no account needed.
+// ---------------------------------------------------------------------------
+
+type shareIn struct {
+	Name string `json:"name"`
+	Text string `json:"text"`
+	Key  string `json:"key,omitempty"`
+}
+
+type shareJSON struct {
+	ID      string    `json:"id"`
+	Name    string    `json:"name"`
+	Text    string    `json:"text,omitempty"`
+	Key     string    `json:"key,omitempty"`
+	Created time.Time `json:"created"`
+}
+
+// POST /api/share {name, text}: a new link, and the key to update it later.
+func (s *Server) shareCreate(w http.ResponseWriter, r *http.Request) {
+	var in shareIn
+	if err := readJSON(r, &in); err != nil {
+		apiFail(w, http.StatusBadRequest, "bad request", err.Error())
+		return
+	}
+	if in.Name == "" {
+		in.Name = "scene"
+	}
+	if msg := s.checkProject(projectIn{Name: in.Name, Text: in.Text}); msg != "" {
+		apiFail(w, http.StatusBadRequest, msg, "")
+		return
+	}
+	id, err := randomToken()
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	id = id[:12]
+	key, err := randomToken()
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := s.store.CreateShare(r.Context(), id, in.Name, in.Text, hashToken(key)); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, shareJSON{ID: id, Name: in.Name, Key: key, Created: time.Now()})
+}
+
+var shareIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{12}$`)
+
+// GET /api/share/{id}: the scene behind a link.
+func (s *Server) shareGet(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !shareIDRe.MatchString(id) {
+		apiFail(w, http.StatusNotFound, "no such shared scene", "")
+		return
+	}
+	sh, err := s.store.GetShare(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		apiFail(w, http.StatusNotFound, "no such shared scene", "")
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, shareJSON{ID: sh.ID, Name: sh.Name, Text: sh.Text, Created: sh.Created})
+}
+
+// PUT /api/share/{id} {name, text, key}: update, for the browser that holds the key.
+func (s *Server) sharePut(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var in shareIn
+	if err := readJSON(r, &in); err != nil || !shareIDRe.MatchString(id) {
+		apiFail(w, http.StatusBadRequest, "bad request", "")
+		return
+	}
+	if in.Name == "" {
+		in.Name = "scene"
+	}
+	if msg := s.checkProject(projectIn{Name: in.Name, Text: in.Text}); msg != "" {
+		apiFail(w, http.StatusBadRequest, msg, "")
+		return
+	}
+	err := s.store.UpdateShare(r.Context(), id, in.Name, in.Text, hashToken(in.Key))
+	if errors.Is(err, store.ErrNotFound) {
+		apiFail(w, http.StatusForbidden, "this link cannot be updated from here: share it again to get a new one", "")
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, shareJSON{ID: id, Name: in.Name, Created: time.Now()})
+}

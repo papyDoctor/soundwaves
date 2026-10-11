@@ -98,8 +98,12 @@ func (s *Store) Migrate(ctx context.Context) error {
 	return nil
 }
 
-// PurgeExpired drops the sessions past their expiry.
+// PurgeExpired drops the sessions past their expiry, and the shared scenes
+// nobody opened for a year.
 func (s *Store) PurgeExpired(ctx context.Context) error {
-	_, err := s.pool.Exec(ctx, `delete from session where expires_at < now()`)
+	if _, err := s.pool.Exec(ctx, `delete from session where expires_at < now()`); err != nil {
+		return err
+	}
+	_, err := s.pool.Exec(ctx, `delete from share where accessed_at < now() - interval '365 days'`)
 	return err
 }

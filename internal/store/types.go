@@ -43,8 +43,22 @@ type Project struct {
 	Bytes   int
 }
 
+// Share: a scene behind an anonymous link.
+type Share struct {
+	ID      string
+	Name    string
+	Text    string
+	Created time.Time
+}
+
 // Storage is what the web layer needs from a store.
 type Storage interface {
+	CreateShare(ctx context.Context, id, name, text string, editKeyHash []byte) error
+	// ErrNotFound when the id is unknown; bumps accessed_at.
+	GetShare(ctx context.Context, id string) (Share, error)
+	// ErrNotFound when the id or the key is wrong.
+	UpdateShare(ctx context.Context, id, name, text string, editKeyHash []byte) error
+
 	// The account behind an identity: known (provider, subject), else an
 	// account owning the same verified address, else a new one.
 	AccountForIdentity(ctx context.Context, id Identity) (Account, error)

@@ -25,7 +25,7 @@ func TestPostgresStore(t *testing.T) {
 	if err := st.Migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.pool.Exec(ctx, `truncate project, session, identity, account restart identity cascade`); err != nil {
+	if _, err := st.pool.Exec(ctx, `truncate project, session, identity, account, share restart identity cascade`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -104,5 +104,22 @@ func TestPostgresStore(t *testing.T) {
 	}
 	if err := st.DeleteProject(ctx, alice.ID, p.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatal("deleting twice must say not found")
+	}
+
+	// Anonymous shares.
+	if err := st.CreateShare(ctx, "abcdefghijkl", "s", "text", []byte("k")); err != nil {
+		t.Fatal(err)
+	}
+	if sh, err := st.GetShare(ctx, "abcdefghijkl"); err != nil || sh.Text != "text" {
+		t.Fatalf("get share: %v %+v", err, sh)
+	}
+	if err := st.UpdateShare(ctx, "abcdefghijkl", "s", "v2", []byte("wrong")); !errors.Is(err, ErrNotFound) {
+		t.Fatal("a wrong key must not update")
+	}
+	if err := st.UpdateShare(ctx, "abcdefghijkl", "s", "v2", []byte("k")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.GetShare(ctx, "nope"); !errors.Is(err, ErrNotFound) {
+		t.Fatal("unknown share must be not found")
 	}
 }

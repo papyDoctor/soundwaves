@@ -10,18 +10,24 @@ export function mountTopbar(state, actions) {
   q("open").addEventListener("click", () => actions.open());
   q("save").addEventListener("click", () => actions.save());
   q("download").addEventListener("click", () => actions.download());
+  q("share").addEventListener("click", () => actions.share());
   account.addEventListener("click", () => (state.session?.account ? actions.signOut() : actions.signIn()));
-  project.addEventListener("change", () => { if (project.value) actions.openProject(Number(project.value)); });
+  project.addEventListener("change", () => {
+    if (project.value.startsWith("local:")) actions.openLocal(project.value.slice(6));
+    else if (project.value) actions.openProject(Number(project.value));
+  });
 
   // The project select: the unsaved scene first, then the account's projects.
   function drawProjects() {
     project.replaceChildren();
     const current = state.project?.id ?? "";
     const list = state.projects || [];
-    if (!current) { const o = document.createElement("option"); o.value = ""; o.textContent = state.session?.account ? `${state.sceneName} (not saved here)` : state.sceneName; project.append(o); }
+    if (!current) { const o = document.createElement("option"); o.value = ""; o.textContent = state.sceneName + (state.share?.id ? " (shared link)" : ""); project.append(o); }
     for (const p of list) { const o = document.createElement("option"); o.value = String(p.id); o.textContent = p.name; if (p.id === current) o.selected = true; project.append(o); }
+    for (const name of state.library?.names() || []) { const o = document.createElement("option"); o.value = "local:" + name; o.textContent = `${name} (this browser)`; if (!current && state.libraryName === name) o.selected = true; project.append(o); }
     const signed = !!state.session?.account;
     account.hidden = !state.session?.storage;
+    q("share").hidden = !state.session?.storage;
     account.textContent = signed ? `${state.session.account.name} · sign out` : "Sign in";
     account.title = signed ? "Signed in: click to sign out" : "Sign in to keep your scenes on this server";
   }

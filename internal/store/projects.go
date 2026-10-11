@@ -90,3 +90,30 @@ func (s *Store) DeleteProject(ctx context.Context, account, id int64) error {
 	}
 	return nil
 }
+
+func (s *Store) CreateShare(ctx context.Context, id, name, text string, editKeyHash []byte) error {
+	_, err := s.pool.Exec(ctx, `insert into share (id, name, text, edit_key_hash) values ($1, $2, $3, $4)`, id, name, text, editKeyHash)
+	return err
+}
+
+func (s *Store) GetShare(ctx context.Context, id string) (Share, error) {
+	var sh Share
+	err := s.pool.QueryRow(ctx, `
+		update share set accessed_at = now() where id = $1
+		returning id, name, text, created_at`, id).Scan(&sh.ID, &sh.Name, &sh.Text, &sh.Created)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Share{}, ErrNotFound
+	}
+	return sh, err
+}
+
+func (s *Store) UpdateShare(ctx context.Context, id, name, text string, editKeyHash []byte) error {
+	tag, err := s.pool.Exec(ctx, `update share set name = $2, text = $3, accessed_at = now() where id = $1 and edit_key_hash = $4`, id, name, text, editKeyHash)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

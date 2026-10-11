@@ -155,3 +155,34 @@ func TestStaticMode(t *testing.T) {
 		t.Fatal("no project routes in static mode")
 	}
 }
+
+// Anyone can share a scene and open a link; only the key holder updates it.
+func TestAnonymousShare(t *testing.T) {
+	h, _ := testServer(t)
+	rec := do(t, h, "POST", "/api/share", `{"name":"room","text":"soundwaves 1\n"}`, "", "")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("share: %d %s", rec.Code, rec.Body)
+	}
+	var sh shareJSON
+	_ = json.Unmarshal(rec.Body.Bytes(), &sh)
+	if len(sh.ID) != 12 || sh.Key == "" {
+		t.Fatalf("share json: %+v", sh)
+	}
+	rec = do(t, h, "GET", "/api/share/"+sh.ID, "", "", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"text":"soundwaves 1\n"`) || strings.Contains(rec.Body.String(), `"key"`) {
+		t.Fatalf("read: %d %s", rec.Code, rec.Body)
+	}
+	if do(t, h, "GET", "/api/share/nope", "", "", "").Code != http.StatusNotFound {
+		t.Fatal("bad id should be 404")
+	}
+	if do(t, h, "PUT", "/api/share/"+sh.ID, `{"name":"room","text":"v2","key":"wrong"}`, "", "").Code != http.StatusForbidden {
+		t.Fatal("wrong key should be 403")
+	}
+	if do(t, h, "PUT", "/api/share/"+sh.ID, `{"name":"room2","text":"v2","key":"`+sh.Key+`"}`, "", "").Code != http.StatusOK {
+		t.Fatal("right key should update")
+	}
+	rec = do(t, h, "GET", "/api/share/"+sh.ID, "", "", "")
+	if !strings.Contains(rec.Body.String(), `"name":"room2"`) {
+		t.Fatalf("updated: %s", rec.Body)
+	}
+}

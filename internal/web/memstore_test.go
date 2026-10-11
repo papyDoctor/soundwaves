@@ -16,7 +16,13 @@ type memStore struct {
 	ids      map[string]int64 // provider/subject -> account
 	sessions map[string]sess
 	projects map[int64]store.Project
+	shares   map[string]memShare
 	next     int64
+}
+
+type memShare struct {
+	share store.Share
+	key   string
 }
 
 type sess struct {
@@ -25,7 +31,7 @@ type sess struct {
 }
 
 func newMemStore() *memStore {
-	return &memStore{accounts: map[int64]store.Account{}, ids: map[string]int64{}, sessions: map[string]sess{}, projects: map[int64]store.Project{}}
+	return &memStore{accounts: map[int64]store.Account{}, ids: map[string]int64{}, sessions: map[string]sess{}, projects: map[int64]store.Project{}, shares: map[string]memShare{}}
 }
 
 func (m *memStore) AccountForIdentity(_ context.Context, id store.Identity) (store.Account, error) {
@@ -130,5 +136,34 @@ func (m *memStore) DeleteProject(_ context.Context, account, id int64) error {
 		return store.ErrNotFound
 	}
 	delete(m.projects, id)
+	return nil
+}
+
+func (m *memStore) CreateShare(_ context.Context, id, name, text string, key []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.shares[id] = memShare{store.Share{ID: id, Name: name, Text: text, Created: time.Now()}, string(key)}
+	return nil
+}
+
+func (m *memStore) GetShare(_ context.Context, id string) (store.Share, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sh, ok := m.shares[id]
+	if !ok {
+		return store.Share{}, store.ErrNotFound
+	}
+	return sh.share, nil
+}
+
+func (m *memStore) UpdateShare(_ context.Context, id, name, text string, key []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sh, ok := m.shares[id]
+	if !ok || sh.key != string(key) {
+		return store.ErrNotFound
+	}
+	sh.share.Name, sh.share.Text = name, text
+	m.shares[id] = sh
 	return nil
 }

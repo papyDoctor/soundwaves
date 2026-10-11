@@ -23,14 +23,17 @@ import { parse, serialize } from "./scene/format.js";
 import { Scene } from "./scene/model.js";
 import { History } from "./scene/undo.js";
 import { api } from "./api.js";
+import { Library } from "./scene/library.js";
 
 const DRAFT = "sw.draft.v1";
 const EXAMPLES = ["room.sw", "hall_half.sw", "tube_axisym.sw", "horn.sw"];
 
 /** Make `text` the scene. Parse errors are reported but what parsed is kept.
     `project` is the server record it came from ({id, version, etag}), if any. */
-function loadScene(text, name, project = null) {
+function loadScene(text, name, project = null, share = null) {
   state.project = project;
+  state.share = share;
+  state.libraryName = null;
   const { scene, errors } = parse(text);
   if (errors.length) {
     state.output.add({ title: `${name}: ${errors.length} problem${errors.length > 1 ? "s" : ""} in the text`, kind: "warning",
@@ -58,6 +61,7 @@ async function start() {
   state.output = output(state);
   state.history = new History();
   state.probes = new ProbeStore();
+  state.library = new Library();
   state.sim = new SimClient();
   const loading = state.sim.load().then(
     (r) => state.output.ok("Engine loaded", r.version),
@@ -136,13 +140,16 @@ async function start() {
       const pick = document.createElement("select");
       for (const ex of EXAMPLES) { const o = document.createElement("option"); o.value = "example:" + ex; o.textContent = `example · ${ex}`; pick.append(o); }
       for (const p of state.projects || []) { const o = document.createElement("option"); o.value = "project:" + p.id; o.textContent = `mine · ${p.name}`; pick.append(o); }
+      for (const name of state.library.names()) { const o = document.createElement("option"); o.value = "local:" + name; o.textContent = `this browser · ${name}`; pick.append(o); }
       const file = document.createElement("input"); file.type = "file"; file.accept = ".sw,text/plain"; file.style.marginTop = "0.5rem";
       content.append(pick, file);
       const choice = await ask({ title: "Open a scene", text: "Unsaved changes to the current scene are lost.", content,
-        buttons: [{ label: "Open", value: "ok", primary: true }, { label: "Cancel", value: "cancel" }] });
+        buttons: [{ label: "Open", value: "ok", primary: true }, { label: "Delete from this browser", value: "delete" }, { label: "Cancel", value: "cancel" }] });
+      if (choice === "delete") { if (pick.value.startsWith("local:")) actions.deleteLocal(pick.value.slice(6)); return; }
       if (choice !== "ok") return;
       if (file.files[0]) loadScene(await file.files[0].text(), file.files[0].name);
       else if (pick.value.startsWith("project:")) await actions.openProject(Number(pick.value.slice(8)));
+      else if (pick.value.startsWith("local:")) actions.openLocal(pick.value.slice(6));
       else { const ex = pick.value.slice(8); const r = await fetch(`examples/${ex}`); loadScene(await r.text(), ex); }
     },
     download() {
@@ -308,13 +315,71 @@ async function start() {
       state.output.error("Save failed", e.message);
     }
   };
-  actions.save = () => (state.session?.account ? actions.saveToServer() : actions.download());
+  // The keys of the links this browser created: id -> key.
+  const shareKeys = () => { try { return JSON.parse(localStorage.getItem("sw.shares") || "{}"); } catch { return {}; } };
+  const rememberShare = (id, key, name) => { const all = shareKeys(); all[id] = { key, name }; try { localStorage.setItem("sw.shares", JSON.stringify(all)); } catch {} };
+
+  actions.saveLocal = async () => {
+    const content = document.createElement("div");
+    const input = document.createElement("input"); input.type = "text"; input.style.width = "100%";
+    input.value = state.libraryName || state.sceneName.replace(/\.sw$/, "");
+    content.append(input);
+    const choice = await ask({ title: "Save in this browser", text: "No account needed: the scene stays in this browser's storage, under a name. Download (↓) keeps a file.", content,
+      buttons: [{ label: "Save", value: "ok", primary: true }, { label: "Cancel", value: "cancel" }],
+      check: () => (/^[^\s].{0,63}$/.test(input.value.trim()) ? "" : "a name, 1 to 64 characters") });
+    if (choice !== "ok") return;
+    const name = input.value.trim();
+    if (!state.library.put(name, serialize(state.scene))) { state.output.error("Save failed", "This browser refuses to store it (private mode, or storage full)."); return; }
+    state.libraryName = name; state.sceneName = name + ".sw";
+    state.emit("scene", { origin: "save", level: "view" });
+    state.output.ok("Saved in this browser", name);
+  };
+  actions.openLocal = (name) => {
+    const entry = state.library.get(name);
+    if (!entry) return;
+    loadScene(entry.text, name + ".sw");
+    state.libraryName = name;
+    state.emit("scene", { origin: "save", level: "view" });
+    state.output.ok("Opened", `${name} from this browser`);
+  };
+  actions.deleteLocal = (name) => { state.library.remove(name); if (state.libraryName === name) state.libraryName = null; state.emit("scene", { origin: "save", level: "view" }); state.output.ok("Removed from this browser", name); };
+
+  actions.share = async () => {
+    const text = serialize(state.scene), name = state.sceneName.replace(/\.sw$/, "");
+    try {
+      let id = state.share?.id, key = state.share?.key;
+      if (id && key) await api.put(`/api/share/${id}`, { name, text, key });
+      else { const { data } = await api.post("/api/share", { name, text }); id = data.id; key = data.key; rememberShare(id, key, name); state.share = { id, key }; }
+      const url = `${location.origin}${location.pathname}?s=${id}`;
+      try { await navigator.clipboard.writeText(url); } catch {}
+      const p = document.createElement("p"); const a = document.createElement("a"); a.href = url; a.textContent = url; a.target = "_blank"; p.append(a);
+      state.output.add({ title: "Shared: link copied to the clipboard", kind: "ok", body: [p, "Anyone with the link can open it. Share again from this browser to update it."] });
+      state.emit("scene", { origin: "save", level: "view" });
+    } catch (e) { state.output.error("Share failed", e.message); }
+  };
+  actions.openShare = async (id) => {
+    try {
+      const { data } = await api.get(`/api/share/${id}`);
+      const mine = shareKeys()[id];
+      loadScene(data.text, data.name + ".sw", null, { id, key: mine?.key || null });
+      state.output.ok("Opened a shared scene", `${data.name}${mine ? " (yours: Share updates it)" : " (read-only link: Save keeps a copy of your own)"}`);
+    } catch (e) { state.output.error("Could not open the shared scene", e.message); }
+  };
+
+  // Save goes to the account, else to the shared link we hold the key of, else to this browser.
+  actions.save = () => {
+    if (state.session?.account) return actions.saveToServer();
+    if (state.share?.id && state.share.key) return actions.share();
+    return actions.saveLocal();
+  };
   actions.deleteProject = async () => {
     if (!state.project?.id) return;
     try { await api.del(`/api/projects/${state.project.id}`); state.project = null; await refreshProjects(); state.emit("scene", { origin: "save", level: "view" }); state.output.ok("Deleted from your account"); }
     catch (e) { state.output.error("Delete failed", e.message); }
   };
   await refreshSession();
+  const shared = new URLSearchParams(location.search).get("s");
+  if (shared && /^[A-Za-z0-9_-]{12}$/.test(shared)) await actions.openShare(shared);
   // Back from an identity provider: the address says how it went.
   const back = new URLSearchParams(location.search).get("login");
   if (back) {
