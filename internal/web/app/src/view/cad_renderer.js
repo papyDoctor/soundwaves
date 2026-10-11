@@ -5,7 +5,7 @@
  */
 import { arcPoints, outline, apply } from "../scene/geometry.js";
 
-export const KIND_COLORS = { rigid: "#c8ccd4", absorb: "#f0a040", impedance: "#e2b93d", open: "#4fd0e0", piston: "#3ec281", symmetry: "#c792ea" };
+export const KIND_COLORS = { rigid: "#c8ccd4", absorb: "#f0a040", impedance: "#e2b93d", open: "#4fd0e0", piston: "#3ec281", symmetry: "#c792ea", screen: "#ff9cac" };
 
 export function drawCad(ctx, camera, scene, { selection = null, hover = null, rubber = null, showGrid = true, dpr = 1, mirrors = [], gridStep = 0 } = {}) {
   const W = camera.width, H = camera.height;
@@ -66,7 +66,7 @@ export function drawCad(ctx, camera, scene, { selection = null, hover = null, ru
     const selected = selection?.type === "wall" && selection.id === e.id;
     const hovered = hover?.type === "wall" && hover.id === e.id;
     ctx.lineWidth = selected ? 3 : hovered ? 2.5 : 2;
-    const dashed = (mat) => ["open", "symmetry"].includes(scene.material(mat)?.kind);
+    const dashed = (mat) => ["open", "symmetry", "screen"].includes(scene.material(mat)?.kind);
     // A piston shows which face pushes: ticks on the moving side(s), a dashed tick where it pulls.
     const ticks = (pts, mat, close) => {
       const m = scene.material(mat);

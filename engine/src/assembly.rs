@@ -31,6 +31,10 @@ pub struct System {
     /// Lumped boundary damping (Robin / open edges).
     pub c: Vec<f64>,
     pub loads: Vec<Load>,
+    /// Porous screens: twin nodes (i, j) across a thin wall, coupled by a
+    /// damping g = (edge weight) / R: the pressure drop across the screen
+    /// is R times the velocity through it.
+    pub couplings: Vec<(u32, u32, f64)>,
     /// Largest sound speed, for the geometric time-step estimate.
     pub c_max: f64,
 }
@@ -69,10 +73,20 @@ pub fn assemble(scene: &Scene, mesh: &Mesh) -> Result<System, String> {
     }
 
     // Boundary damping: (1/(zeta rho c)) * integral of phi_i phi_j over the edge, lumped.
+    // A screen on a thin wall is handled below as a coupling; on an outer
+    // wall it is an impedance 1 + R/(rho c): resistance in series with radiation.
+    let twin_of = |n: u32| mesh.twins.iter().any(|t| t.a == n || t.b == n);
     for e in &mesh.edges {
         let zeta = match e.kind {
             EdgeKind::Robin => scene.materials[e.material as usize].zeta,
             EdgeKind::Open => 1.0,
+            EdgeKind::Screen => {
+                if twin_of(e.nodes[0]) || twin_of(e.nodes[1]) {
+                    continue; // a thin-wall screen: coupled below
+                }
+                let medium = &scene.media[scene.regions[mesh.tri_region[e.tri as usize] as usize].medium];
+                1.0 + scene.materials[e.material as usize].resistance / (medium.rho * medium.c)
+            }
             _ => continue,
         };
         let medium = &scene.media[scene.regions[mesh.tri_region[e.tri as usize] as usize].medium];
@@ -132,8 +146,28 @@ pub fn assemble(scene: &Scene, mesh: &Mesh) -> Result<System, String> {
         loads.push(Load::Piston { weights, signal });
     }
 
+    // Screens inside the air: for every screen edge, its two faces' twin
+    // nodes get g = w / R, with w the edge's weight at that node. The faces'
+    // boundary term is -(1/R) d(delta p)/dt, a damping between twins.
+    let mut couplings: Vec<(u32, u32, f64)> = Vec::new();
+    let mut twin_map: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+    for t in &mesh.twins {
+        twin_map.insert(t.a, t.b);
+        twin_map.insert(t.b, t.a);
+    }
+    // Each physical screen edge appears once per face (side +1 and -1 of the
+    // drawing direction): the left face alone counts it, both faces share the weight.
+    for e in mesh.edges.iter().filter(|e| e.kind == EdgeKind::Screen && e.side == 1) {
+        let (wa, wb) = edge_weights(mesh, e.nodes, axisym);
+        let r = scene.materials[e.material as usize].resistance;
+        for (node, w) in [(e.nodes[0], wa), (e.nodes[1], wb)] {
+            if let Some(&other) = twin_map.get(&node) {
+                couplings.push((node, other, w / r));
+            }
+        }
+    }
     let c_max = scene.media.iter().map(|m| m.c).fold(0.0, f64::max);
-    Ok(System { pattern, k, m, c, loads, c_max })
+    Ok(System { pattern, k, m, c, loads, couplings, c_max })
 }
 
 /// Integral of phi_a and phi_b over an edge: L/2 each in the plane; with the

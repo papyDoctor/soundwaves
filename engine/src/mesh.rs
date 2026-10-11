@@ -27,6 +27,8 @@ pub enum EdgeKind {
     Piston = 4,
     /// A mirror line: nothing to do (natural condition), drawn as a mirror.
     Symmetry = 5,
+    /// A porous screen: a resistive coupling between its two faces.
+    Screen = 6,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -68,7 +70,18 @@ pub struct Mesh {
     pub source_nodes: Vec<u32>,
     /// Node of each probe.
     pub probe_nodes: Vec<u32>,
+    /// Along thin walls, the twin nodes (one per face) that came from one
+    /// original node, with the material of the wall between them: what a
+    /// screen couples.
+    pub twins: Vec<Twin>,
     pub stats: MeshStats,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Twin {
+    pub a: u32,
+    pub b: u32,
+    pub material: u16,
 }
 
 /// Points equal to within `tol` collapse onto one key.
@@ -300,7 +313,8 @@ pub fn build(scene: &Scene) -> Result<Mesh, String> {
             edges.push(BoundaryEdge { nodes: [na, nb], tri: face_tri[fi], kind, material: s.material, element: s.element, side: 0 });
         }
     }
-    let split_nodes = split_baffles(scene, &segs, &mut xy, &mut tri, &mut edges, cracks, tol, diag)?;
+    let mut twins = Vec::new();
+    let split_nodes = split_baffles(scene, &segs, &mut xy, &mut tri, &mut edges, &mut twins, cracks, tol, diag)?;
     if axisym {
         // A piston edge lying on the axis has a zero radius, hence a zero
         // area: it moves nothing. Not an error, just a wall that does nothing.
@@ -377,7 +391,7 @@ pub fn build(scene: &Scene) -> Result<Mesh, String> {
         refinement_complete: result.refinement_complete,
         warnings,
     };
-    Ok(Mesh { xy, tri, tri_region, edges, source_nodes, probe_nodes, stats })
+    Ok(Mesh { xy, tri, tri_region, edges, source_nodes, probe_nodes, twins, stats })
 }
 
 /// Thin walls inside a region: a constraint edge with kept triangles on both
@@ -393,6 +407,7 @@ fn split_baffles(
     xy: &mut Vec<[f64; 2]>,
     tri: &mut Vec<[u32; 3]>,
     edges: &mut Vec<BoundaryEdge>,
+    twins: &mut Vec<Twin>,
     cracks: Vec<(u32, u32, u32)>,
     tol: f64,
     diag: f64,
@@ -478,10 +493,14 @@ fn split_baffles(
         }
         let s = segs[si];
         let kind = edge_kind(scene.materials[s.material as usize].kind);
+        // The node each face of this edge now uses for the original k.0 and k.1.
+        let (mut faces_a, mut faces_b) = (Vec::new(), Vec::new());
         for &t in tris {
             let o = original[t as usize];
             let ia = o.iter().position(|&i| i == k.0).unwrap();
             let ib = o.iter().position(|&i| i == k.1).unwrap();
+            faces_a.push(tri[t as usize][ia]);
+            faces_b.push(tri[t as usize][ib]);
             // In the triangle's counter-clockwise order: the triangle is on the
             // left of this directed edge. Compare with the wall's own direction.
             let (ia, ib) = if (ia + 1) % 3 == ib { (ia, ib) } else { (ib, ia) };
@@ -489,6 +508,16 @@ fn split_baffles(
             let along = (pb[0] - pa[0]) * (s.b[0] - s.a[0]) + (pb[1] - pa[1]) * (s.b[1] - s.a[1]);
             let side: i8 = if along >= 0.0 { 1 } else { -1 };
             edges.push(BoundaryEdge { nodes: [tri[t as usize][ia], tri[t as usize][ib]], tri: t, kind, material: s.material, element: s.element, side });
+        }
+        // Twin nodes across this edge: the two faces' nodes for each end,
+        // when the split gave them different numbers (not at a free tip).
+        for faces in [&faces_a, &faces_b] {
+            if faces.len() == 2 && faces[0] != faces[1] {
+                let (a, b) = (faces[0].min(faces[1]), faces[0].max(faces[1]));
+                if !twins.iter().any(|t| t.a == a && t.b == b) {
+                    twins.push(Twin { a, b, material: s.material });
+                }
+            }
         }
     }
     Ok(added)
@@ -502,6 +531,7 @@ fn edge_kind(kind: MaterialKind) -> EdgeKind {
         MaterialKind::Open => EdgeKind::Open,
         MaterialKind::Symmetry => EdgeKind::Symmetry,
         MaterialKind::Piston => EdgeKind::Piston,
+        MaterialKind::Screen => EdgeKind::Screen,
     }
 }
 

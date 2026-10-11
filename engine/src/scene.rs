@@ -36,6 +36,10 @@ pub enum MaterialKind {
     /// A moving wall: every segment of this material pushes the fluid with
     /// the material's signal as inward normal velocity (m/s).
     Piston,
+    /// A porous screen (a resistive cloth): the wave goes through with a
+    /// pressure drop R v, R the flow resistance. Inside the air it couples
+    /// the two faces; on an outer wall it is an impedance 1 + R/(rho c).
+    Screen,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -50,6 +54,9 @@ pub struct Material {
     /// The velocity signal of a Piston material.
     #[serde(default)]
     pub signal: Option<Signal>,
+    /// Flow resistance of a Screen material, Pa.s/m (rayl).
+    #[serde(default)]
+    pub resistance: f64,
     /// Which faces of an interior piston (a baffle) move. Irrelevant on an
     /// outer wall, which has one face.
     #[serde(default)]
@@ -213,8 +220,11 @@ impl Scene {
             }
         }
         for m in &self.materials {
-            if !matches!(m.kind, MaterialKind::Rigid | MaterialKind::Symmetry | MaterialKind::Piston) && !(m.zeta > 0.0) {
+            if !matches!(m.kind, MaterialKind::Rigid | MaterialKind::Symmetry | MaterialKind::Piston | MaterialKind::Screen) && !(m.zeta > 0.0) {
                 return Err(format!("material '{}': zeta must be positive", m.name));
+            }
+            if m.kind == MaterialKind::Screen && !(m.resistance > 0.0) {
+                return Err(format!("material '{}': a screen needs a positive resistance", m.name));
             }
             if m.kind == MaterialKind::Piston {
                 match m.signal {
@@ -298,7 +308,7 @@ pub fn geometry_signature(json: &str) -> Result<String, String> {
             }
         }
     };
-    strip(v.get_mut("materials"), &["kind", "zeta", "signal", "sides"]);
+    strip(v.get_mut("materials"), &["kind", "zeta", "signal", "sides", "resistance"]);
     strip(v.get_mut("media"), &["rho"]);
     strip(v.get_mut("sources"), &["signal"]);
     if let Some(Value::Object(sim)) = v.get_mut("sim") {

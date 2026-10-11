@@ -155,7 +155,7 @@ export class Scene {
     return {
       mode: this.mode,
       media: this.media.map((m) => ({ name: m.name, c: m.c, rho: m.rho })),
-      materials: this.materials.map((m) => ({ name: m.name, kind: m.kind, zeta: Scene.zeta(m), ...(m.kind === "piston" ? { signal: signal(m.signal || { type: "sine", f0: 500, amp: 0.01 }), sides: m.sides || "both" } : {}) })),
+      materials: this.materials.map((m) => ({ name: m.name, kind: m.kind, zeta: Scene.zeta(m), ...(m.kind === "piston" ? { signal: signal(m.signal || { type: "sine", f0: 500, amp: 0.01 }), sides: m.sides || "both" } : {}), ...(m.kind === "screen" ? { resistance: m.rayl || 200 } : {}) })),
       elements,
       regions: this.regions.map((r) => ({ id: r.id, seed: [r.x * k, r.y * k], medium: mediumIndex(r.medium) })),
       sources,

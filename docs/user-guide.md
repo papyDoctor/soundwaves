@@ -118,6 +118,7 @@ Inspector's **Delete** and the Delete key remove items; the text panel's
 | `open` | Lets the wave out, as if the scene continued (a first-order absorbing boundary; some reflection remains at grazing incidence). | — |
 | `symmetry` | A mirror line. Draw half (or a quarter) of a symmetric scene; the physics is exact because a mirror is the same natural condition as a rigid wall for the pressure. The viewport draws the mirror image. A source on the line counts once in the half, twice in the whole. | — |
 | `piston` | A moving wall: every segment with this material pushes the fluid with the signal as inward normal velocity (m/s). | the signal, `sides` |
+| `screen` | A porous cloth: the wave goes through with a pressure drop R·v (R the flow resistance). Drawn inside the air it couples its two faces; at normal incidence the pressure transmission is 2/(2+r) and the reflection r/(2+r), with r = R/ρc. On an outer wall it is an impedance 1 + r. | `rayl` (Pa·s/m; air's ρc is 412) or `r` (normalized) |
 
 `absorb` is converted to `zeta = (1+R)/(1-R)` with `R = √(1-alpha)`; the
 Inspector shows the resulting reflection coefficient.

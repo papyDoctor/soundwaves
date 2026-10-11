@@ -168,8 +168,14 @@ BY_TYPE.material = (n, state) => {
   if (!m) return card("material", "gone");
   const el = card("material", m.name);
   const kind = select(m.kind, MATERIAL_KINDS);
-  kind.addEventListener("change", () => state.modify((x) => { const o = find(x); o.kind = kind.value; if (kind.value === "absorb") o.alpha ??= 0.5; if (kind.value === "impedance") o.zeta ??= 2; if (kind.value === "piston") o.signal ??= { type: "burst", f0: Math.round(x.sim.fmax / 3), amp: 0.01, cycles: 3 }; }, { origin: "inspector", level: "physics" }));
-  el.append(row("kind", kind, "rigid: hard wall. absorb: by absorption coefficient. impedance: by normalized impedance. open: lets the wave out (first-order). symmetry: a mirror line, draw half the scene. piston: a moving wall, with its own signal"));
+  kind.addEventListener("change", () => state.modify((x) => { const o = find(x); o.kind = kind.value; if (kind.value === "absorb") o.alpha ??= 0.5; if (kind.value === "impedance") o.zeta ??= 2; if (kind.value === "piston") o.signal ??= { type: "burst", f0: Math.round(x.sim.fmax / 3), amp: 0.01, cycles: 3 }; if (kind.value === "screen") o.rayl ??= 200; }, { origin: "inspector", level: "physics" }));
+  el.append(row("kind", kind, "rigid: hard wall. absorb: by absorption coefficient. impedance: by normalized impedance. open: lets the wave out (first-order). symmetry: a mirror line, draw half the scene. piston: a moving wall, with its own signal. screen: a porous cloth the wave goes through with a loss"));
+  if (m.kind === "screen") {
+    el.append(num(state, find, "rayl", "physics", { min: 0.1, step: 10, label: "resistance (rayl)" }, "Flow resistance in Pa·s/m. Air's rho c is 412 rayl; acoustic cloth 10 to 100, felt 500 to 2000. Drawn inside the air, a thin screen lets the wave through with a pressure drop R v; on an outer wall it acts as an impedance 1 + R / rho c"));
+    const r = (m.rayl || 200) / 412;
+    el.append(field("r = R / rho c", fmt(r)), field("transmission (normal)", fmt(2 / (2 + r))), field("reflection (normal)", fmt(r / (2 + r))));
+    el.append(note("Thin screens drawn inside the air: used by interference-tube (shotgun) microphones over their slots, and as damping cloth."));
+  }
   if (m.kind === "symmetry") el.append(note("A mirror line: the same natural condition as a rigid wall, so only half the scene is meshed. The viewport draws the mirror image. A source on the line counts once in the half, twice in the whole."));
   if (m.kind === "piston") {
     el.append(h4("Signal: inward velocity"));
@@ -181,7 +187,7 @@ BY_TYPE.material = (n, state) => {
   }
   if (m.kind === "absorb") el.append(num(state, find, "alpha", "physics", { min: 0, max: 1, step: 0.05, label: "alpha" }, "Energy absorption coefficient at normal incidence, 0 to 1"));
   if (m.kind === "impedance") el.append(num(state, find, "zeta", "physics", { min: 0.01, step: 0.1, label: "zeta = Z / (rho c)" }, "Normalized specific impedance. 1 is perfectly matched (open), large is rigid"));
-  if (!["rigid", "symmetry", "piston"].includes(m.kind)) {
+  if (!["rigid", "symmetry", "piston", "screen"].includes(m.kind)) {
     const z = Scene.zeta(m), R = (z - 1) / (z + 1);
     el.append(field("zeta", fmt(z)), field("reflection R", fmt(R)), field("absorption", fmt(1 - R * R)));
   }
