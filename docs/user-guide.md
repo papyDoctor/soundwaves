@@ -180,10 +180,22 @@ the chosen ring, one of:
   sine, once the wave has settled everywhere;
 - **energy**: the integral of p² over the run — for pulses, as a relative measure.
 
+- **spectrum at** f: |P(f)| at each angle, from the Fourier transform of the
+  whole recording. With one broadband pulse (`ricker` or `gauss` with `f0` in
+  the middle of the band of interest) this gives the pattern at any frequency
+  without running again.
+
 Linear is normalized to the maximum; dB counts down from it (floor −40 dB,
 10·log for energy). For a true far-field pattern the ring must be in the open
 part of the scene, well away from the source compared with the wavelength and
 the source size, with `open` walls around.
+
+The **Map** tab draws the pattern at every frequency of a band at once: angle
+across, frequency up, colour the level in dB relative to the loudest angle at
+that frequency (floor −30 dB). It is the tool for a frequency sweep: one run
+with a broadband pulse, a `duration` long enough for the pulse to leave the
+scene, `fmax` at least 2.5 times the top of the band, and the band set under
+the map. `megaphone.sw` does this for the voice band, 500 to 3500 Hz.
 
 ## 9. Axisymmetric mode
 

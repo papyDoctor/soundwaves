@@ -1,13 +1,50 @@
 [
-  { "file": "room.sw", "title": "Room: absorbing panel, open door, pillar (planar)" },
-  { "file": "two_rooms.sw", "title": "Two rooms and a door: thin wall with a gap (planar)" },
-  { "file": "hall_half.sw", "title": "Symmetric hall: half drawn, mirror line (planar)" },
-  { "file": "duct_absorber.sw", "title": "Duct with an absorbing lining (planar)" },
-  { "file": "resonator.sw", "title": "Helmholtz resonator on a duct (planar)" },
-  { "file": "slit.sw", "title": "Diffraction through a slit, radiation pattern (planar)" },
-  { "file": "dipole.sw", "title": "Free-standing plate, figure-of-eight pattern (planar)" },
-  { "file": "tube_axisym.sw", "title": "Tube with a piston, open end (axisym)" },
-  { "file": "tube.sw", "title": "Short tube radiating into free air, panels (axisym)" },
-  { "file": "loudspeaker_box.sw", "title": "Closed loudspeaker box, beaming (axisym)" },
-  { "file": "horn.sw", "title": "Horn in a baffle, radiation pattern (axisym)" }
+  {
+    "file": "room.sw",
+    "title": "Room: absorbing panel, open door, pillar (planar)"
+  },
+  {
+    "file": "two_rooms.sw",
+    "title": "Two rooms and a door: thin wall with a gap (planar)"
+  },
+  {
+    "file": "hall_half.sw",
+    "title": "Symmetric hall: half drawn, mirror line (planar)"
+  },
+  {
+    "file": "duct_absorber.sw",
+    "title": "Duct with an absorbing lining (planar)"
+  },
+  {
+    "file": "resonator.sw",
+    "title": "Helmholtz resonator on a duct (planar)"
+  },
+  {
+    "file": "slit.sw",
+    "title": "Diffraction through a slit, radiation pattern (planar)"
+  },
+  {
+    "file": "dipole.sw",
+    "title": "Free-standing plate, figure-of-eight pattern (planar)"
+  },
+  {
+    "file": "tube_axisym.sw",
+    "title": "Tube with a piston, open end (axisym)"
+  },
+  {
+    "file": "tube.sw",
+    "title": "Short tube radiating into free air, panels (axisym)"
+  },
+  {
+    "file": "loudspeaker_box.sw",
+    "title": "Closed loudspeaker box, beaming (axisym)"
+  },
+  {
+    "file": "horn.sw",
+    "title": "Horn in a baffle, radiation pattern (axisym)"
+  },
+  {
+    "file": "megaphone.sw",
+    "title": "Megaphone: radiation map over the voice band, 500 to 3500 Hz (axisym)"
+  }
 ]
