@@ -46,8 +46,9 @@ if [ ! -f /etc/nginx/sites-available/soundwaves ]; then
     install -m 0644 /tmp/soundwaves.nginx /etc/nginx/sites-available/soundwaves
     ln -sf /etc/nginx/sites-available/soundwaves /etc/nginx/sites-enabled/soundwaves
     nginx -t && systemctl reload nginx
-    certbot --nginx -d "$SW_DOMAIN" --non-interactive --agree-tos --redirect --keep-until-expiring \
-        $( [ -f /etc/letsencrypt/cli.ini ] || echo --register-unsafely-without-email ) || \
+    # The machine already has a Let's Encrypt account (papyDeck's sites): certbot
+    # reuses it and only edits the server block whose name matches.
+    certbot --nginx -d "$SW_DOMAIN" --non-interactive --agree-tos --redirect --keep-until-expiring || \
         echo ">> certbot failed: check that $SW_DOMAIN points to this machine, then run: certbot --nginx -d $SW_DOMAIN"
 fi
 rm -f /tmp/soundwaves.nginx /tmp/soundwaves.env /tmp/soundwaves.service
