@@ -93,15 +93,17 @@ export function mountViewport(element, state) {
     redraw();
   }
 
-  // Auto gain: the colour range follows the field's 99th percentile of |p|
-  // (a spike at a source must not darken everything else), rising at once
-  // and falling by 5 % per frame when the field weakens.
+  // Auto gain: the colour range is the strongest level seen since the run
+  // started (the field's 99th percentile of |p|, so a spike at a source does
+  // not darken everything else) and never comes down: the picture keeps one
+  // scale for the whole run, and two runs of a scene compare. Reset and Mesh
+  // start it over; a number in the view's gain fixes it by hand.
   function currentRange() {
     const g = state.scene?.view.gain;
     if (g !== "auto" && g > 0) return g;
     if (frame) {
       const level = frame.robust > 0 ? frame.robust : Math.max(Math.abs(frame.min), Math.abs(frame.max));
-      range = Math.max(level, range * 0.95, 1e-12);
+      range = Math.max(level, range, 1e-12);
     }
     return range;
   }
@@ -189,7 +191,7 @@ export function mountViewport(element, state) {
     const value = g === "auto" ? parseFloat(currentRange().toPrecision(3)) : "auto";
     state.modify((sc) => { sc.view.gain = value; }, { origin: "viewport", level: "view" });
   }
-  function drawLock() { lockBtn.classList.toggle("on", state.scene?.view.gain !== "auto"); lockBtn.title = state.scene?.view.gain === "auto" ? "Lock the colour scale at its current range, to compare amplitudes between runs (K)" : `Colour scale locked at ±${state.scene.view.gain}: click to follow the peak again (K)`; }
+  function drawLock() { lockBtn.classList.toggle("on", state.scene?.view.gain !== "auto"); lockBtn.title = state.scene?.view.gain === "auto" ? "Fix the colour scale at its current range (K). Auto takes the strongest level of each run" : `Colour scale fixed at ±${state.scene.view.gain}: click to go back to auto (K)`; }
   lockBtn.addEventListener("click", toggleLock);
   element.querySelector('[data-role="fit"]').addEventListener("click", fit);
   wireBtn.addEventListener("click", () => { if (renderer) { renderer.wireframe = !renderer.wireframe; wireBtn.classList.toggle("on", renderer.wireframe); redraw(); } });

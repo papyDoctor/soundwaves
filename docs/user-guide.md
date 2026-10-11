@@ -199,9 +199,13 @@ segment on the axis has no area; a ring keeps only its probes with y ≥ 0.
 
 ## 10. The picture
 
-The colour range follows the peak pressure seen so far (`gain=auto`), so a
-louder source looks the same: to compare amplitudes, **lock** the scale (⊜ or
-**K**, or a number in the View card's gain). The legend gives the range.
+With `gain=auto` the colour range is the strongest level seen since the run
+started (a robust one: the 99th percentile of the field, so a spike next to a
+source does not darken everything else) and it stays there for the whole run;
+Reset and Mesh start it over. A louder source therefore looks the same from
+one run to the next: to compare amplitudes, fix the scale (⊜ or **K** freezes
+the current range, or type a number in the View card's gain). The legend
+gives the range.
 Colour maps: `rwb` (blue negative, red positive, dark zero), `bwr`, `viridis`,
 `gray`. **W** shows the mesh.
 

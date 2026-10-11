@@ -98,14 +98,14 @@ BY_TYPE.view = (n, state) => {
     if (v !== "auto" && !(v > 0)) { gain.value = String(s.view.gain); return; }
     state.modify((x) => { x.view.gain = v; }, { origin: "inspector", level: "view" });
   });
-  el.append(row("gain", gain, "auto follows the peak pressure seen so far; a number fixes the colour range to ±value"));
+  el.append(row("gain", gain, "auto: the colour range is the strongest level seen in the run (and stays there); a number fixes it to ±value for every run"));
   const grid = number(s.gridStep(), { min: 0, step: "any", label: "grid" });
   grid.addEventListener("change", () => { const v = parseFloat(grid.value); if (v > 0) state.modify((x) => { x.view.grid = v; }, { origin: "inspector", level: "view" }); });
   el.append(row(`grid (${s.units})`, grid, "The step of the grid drawn in the viewport, which drawn points snap to"));
   const snap = checkbox(s.view.snap !== false);
   snap.addEventListener("change", () => state.modify((x) => { x.view.snap = snap.checked; }, { origin: "inspector", level: "view" }));
   el.append(row("snap to grid", snap, "Drawn and dragged points land on the grid"));
-  el.append(note("Pan: drag. Zoom: wheel. F frames the scene, W toggles the mesh wireframe, H the grid, K locks the colour scale (the ⊜ button). With auto gain a louder source looks the same: lock the scale to compare amplitudes."));
+  el.append(note("Pan: drag. Zoom: wheel. F frames the scene, W toggles the mesh wireframe, H the grid, K fixes the colour scale (the ⊜ button). Auto takes the strongest level of each run, so a louder source looks the same from one run to the next: fix a value to compare amplitudes."));
   return el;
 };
 
