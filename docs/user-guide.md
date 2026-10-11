@@ -206,6 +206,19 @@ frequency, and rows where it is more than 20 dB below its peak are greyed:
 there the map is noise, not physics; move `f0` or widen the pulse.
 `megaphone.sw` does this for the voice band, 500 to 3500 Hz.
 
+### Directivity at low frequency
+
+An opening is only directive when it is large compared with the wavelength
+(λ = 69 cm at 500 Hz): below that, a single source is omnidirectional
+whatever its shape. What works at low frequency is an **array**: several
+sources with their own delay (`t0`) and polarity (a negative `amp` inverts),
+or several piston materials with their own signals. Two sources `d` apart,
+the rear one inverted and delayed by `d/c`, give a cardioid whose shape barely
+depends on frequency as long as `d` is well under λ (`cardioid.sw`: 30 dB
+of rejection behind, from 250 Hz up); its level falls by 6 dB per octave
+towards the bass, which is the price. A line of sources longer than λ
+narrows the beam; delays along it steer it.
+
 ## 9. Axisymmetric mode
 
 `mode axisym` turns the drawing into a body of revolution around the
