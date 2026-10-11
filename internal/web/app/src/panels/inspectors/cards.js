@@ -9,6 +9,7 @@ import { SIGNAL_TYPES, MATERIAL_KINDS, PISTON_SIDES } from "../../scene/format.j
 import { Scene } from "../../scene/model.js";
 import { COLORMAPS } from "../../sim/colormap.js";
 import { armed } from "../../shell/dialog.js";
+import { value, spectrum, band } from "../../scene/signals.js";
 
 const card = (type, title) => { const el = document.createElement("div"); el.className = "card"; el.append(head(type, title)); return el; };
 
@@ -136,6 +137,29 @@ function signalControls(state, el, find, ampHelp) {
   const cv = document.createElement("canvas"); cv.className = "sparkline"; cv.width = 320; cv.height = 48;
   el.append(cv);
   requestAnimationFrame(() => sparkline(cv, s, state.scene.sim.duration));
+  // The spectrum: what band this signal actually covers.
+  const [lo6, hi6] = band(s, -6), [lo20, hi20] = band(s, -20);
+  const sp = document.createElement("canvas"); sp.className = "sparkline"; sp.width = 320; sp.height = 48;
+  el.append(sp);
+  requestAnimationFrame(() => spectrumLine(sp, s, state.scene.sim.fmax));
+  el.append(field("band (−6 dB)", `${Math.round(lo6)} – ${Math.round(hi6)} Hz`));
+  el.append(field("band (−20 dB)", `${Math.round(lo20)} – ${Math.round(hi20)} Hz`));
+  if (hi20 > state.scene.sim.fmax) el.append(note(`The signal reaches above fmax (${state.scene.sim.fmax} Hz): raise fmax or lower f0, or the high part is misrepresented.`));
+}
+
+/** |S(f)| from 0 to fmax, with the −6 and −20 dB levels. */
+function spectrumLine(canvas, sig, fmax) {
+  const ctx = canvas.getContext("2d"), W = canvas.width, H = canvas.height;
+  ctx.fillStyle = "#1b1d22"; ctx.fillRect(0, 0, W, H);
+  const { rel } = spectrum(sig, 0, fmax, W);
+  ctx.strokeStyle = "#2c3038"; ctx.setLineDash([3, 3]);
+  for (const db of [-6, -20]) { const y = H - 3 - (H - 6) * (1 + db / 40); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "#82aaff"; ctx.lineWidth = 1.2; ctx.beginPath();
+  rel.forEach((v, i) => { const db = Math.max(-40, 20 * Math.log10(Math.max(v, 1e-9))); const y = H - 3 - (H - 6) * (1 + db / 40); i ? ctx.lineTo(i, y) : ctx.moveTo(i, y); });
+  ctx.stroke();
+  ctx.fillStyle = "#9aa0ab"; ctx.font = "9px ui-monospace, monospace";
+  ctx.fillText("0 Hz", 2, H - 4); ctx.fillText(`${fmax} Hz`, W - 42, H - 4); ctx.fillText("|S(f)|, −40 dB range, dashes at −6 and −20 dB", 2, 9);
 }
 
 BY_TYPE.material = (n, state) => {
@@ -286,12 +310,3 @@ function sparkline(canvas, sig, duration) {
   ctx.stroke();
 }
 
-export function value(sig) {
-  const PI = Math.PI;
-  switch (sig.type) {
-    case "gauss": { const s = 1 / (PI * sig.f0), t0 = sig.t0 ?? 4 * s; return (t) => sig.amp * Math.exp(-(((t - t0) / s) ** 2)); }
-    case "ricker": { const t0 = sig.t0 ?? 1.5 / sig.f0; return (t) => { const a = (PI * sig.f0 * (t - t0)) ** 2; return sig.amp * (1 - 2 * a) * Math.exp(-a); }; }
-    case "burst": { const t0 = sig.t0 ?? 0, len = (sig.cycles ?? 3) / sig.f0; return (t) => { const tau = t - t0; return tau < 0 || tau >= len ? 0 : sig.amp * Math.sin(2 * PI * sig.f0 * tau) * 0.5 * (1 - Math.cos(2 * PI * tau / len)); }; }
-    default: { const t0 = sig.t0 ?? 0, len = 2 / sig.f0; return (t) => { const tau = t - t0; if (tau < 0) return 0; const r = tau >= len ? 1 : 0.5 * (1 - Math.cos(PI * tau / len)); return sig.amp * Math.sin(2 * PI * sig.f0 * tau) * r; }; }
-  }
-}
