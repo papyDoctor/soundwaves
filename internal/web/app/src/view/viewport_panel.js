@@ -93,12 +93,15 @@ export function mountViewport(element, state) {
     redraw();
   }
 
+  // Auto gain: the colour range follows the field's 99th percentile of |p|
+  // (a spike at a source must not darken everything else), rising at once
+  // and falling by 5 % per frame when the field weakens.
   function currentRange() {
     const g = state.scene?.view.gain;
     if (g !== "auto" && g > 0) return g;
     if (frame) {
-      const peak = Math.max(Math.abs(frame.min), Math.abs(frame.max));
-      range = Math.max(peak, range * 0.995, 1e-12);
+      const level = frame.robust > 0 ? frame.robust : Math.max(Math.abs(frame.min), Math.abs(frame.max));
+      range = Math.max(level, range * 0.95, 1e-12);
     }
     return range;
   }
@@ -195,7 +198,13 @@ export function mountViewport(element, state) {
   // --- The simulation.
   const sim = state.sim;
   const offs = [
-    sim.on("mesh", (m) => { renderer?.setMesh(m.xy, m.tri); frame = null; range = 1e-12; redraw(); }),
+    // The engine works in metres; the drawing is in the scene's unit.
+    sim.on("mesh", (m) => {
+      const k = state.scene?.unitScale() || 1;
+      const xy = k === 1 ? m.xy : m.xy.map((v) => v / k);
+      renderer?.setMesh(xy, m.tri);
+      frame = null; range = 1e-12; redraw();
+    }),
     sim.on("field", (f) => { frame = f; renderer?.setField(f.data); redraw(); }),
     state.on("scene", ({ origin, level }) => {
       mirrors = state.scene ? mirrorTransforms(state.scene) : [];

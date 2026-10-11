@@ -67,6 +67,9 @@ pub struct Simulation {
     edge_kinds: Vec<u16>,
     field: Vec<f32>,
     field_range: [f32; 2],
+    // |p| below which 99 % of the nodes lie: a colour scale that ignores a
+    // spike at a source.
+    field_robust: f32,
     // Probe samples, interleaved by step, drained by read_probes().
     probe_samples: Vec<f32>,
     // What the current mesh was built from (see scene::geometry_signature).
@@ -95,6 +98,7 @@ impl Simulation {
             edge_kinds: Vec::new(),
             field: Vec::new(),
             field_range: [0.0, 0.0],
+            field_robust: 0.0,
             probe_samples: Vec::new(),
         })
     }
@@ -235,8 +239,35 @@ impl Simulation {
                 hi = hi.max(v);
             }
             self.field_range = if lo <= hi { [lo, hi] } else { [0.0, 0.0] };
+            // The 99th percentile of |p| from a 256-bin histogram: O(n), no sort.
+            let peak = lo.abs().max(hi.abs());
+            self.field_robust = if peak > 0.0 {
+                let mut bins = [0u32; 256];
+                for &v in &self.field {
+                    let b = ((v.abs() / peak) * 255.0) as usize;
+                    bins[b.min(255)] += 1;
+                }
+                let target = (0.99 * self.field.len() as f64) as u32;
+                let mut seen = 0u32;
+                let mut cut = 255usize;
+                for (i, &c) in bins.iter().enumerate() {
+                    seen += c;
+                    if seen >= target {
+                        cut = i;
+                        break;
+                    }
+                }
+                peak * (cut as f32 + 1.0) / 256.0
+            } else {
+                0.0
+            };
         }
         self.field.as_ptr()
+    }
+
+    /// |p| below which 99 % of the nodes lie, after the last field_ptr().
+    pub fn field_robust(&self) -> f32 {
+        self.field_robust
     }
 
     pub fn field_range(&self) -> Vec<f32> {

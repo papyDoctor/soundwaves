@@ -67,7 +67,7 @@ function serveField() {
   const out = buffer && buffer.length === n ? buffer : new Float32Array(n);
   out.set(view(sim.field_ptr(), n, Float32Array));
   const range = sim.field_range();
-  postMessage({ type: "field", id, buffer: out, time: sim.time(), step: sim.steps_done(), min: range[0], max: range[1] }, [out.buffer]);
+  postMessage({ type: "field", id, buffer: out, time: sim.time(), step: sim.steps_done(), min: range[0], max: range[1], robust: sim.field_robust() }, [out.buffer]);
 }
 
 // Two paces. A finite speed is "steps per displayed frame": the worker

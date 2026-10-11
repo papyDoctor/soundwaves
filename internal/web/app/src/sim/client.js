@@ -60,7 +60,7 @@ export class SimClient {
         this.fieldInFlight = false;
         this.spare = this.field;             // the previous frame becomes the spare
         this.field = m.buffer;
-        this.emit("field", { data: m.buffer, time: m.time, step: m.step, min: m.min, max: m.max });
+        this.emit("field", { data: m.buffer, time: m.time, step: m.step, min: m.min, max: m.max, robust: m.robust });
         break;
       }
       case "tick": this.time = m.time; this.step = m.step; this.rate = m.rate; this.emit("tick", m); break;

@@ -69,6 +69,14 @@ export class Simulation {
         return v1;
     }
     /**
+     * |p| below which 99 % of the nodes lie, after the last field_ptr().
+     * @returns {number}
+     */
+    field_robust() {
+        const ret = wasm.simulation_field_robust(this.__wbg_ptr);
+        return ret;
+    }
+    /**
      * @returns {boolean}
      */
     finished() {
