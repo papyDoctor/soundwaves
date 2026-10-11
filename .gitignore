@@ -16,3 +16,6 @@
 
 # Deploy scratch
 /.deploy-tmp*
+
+# Personal scenes, served by `make dev` under Open > perso, never committed
+/perso/
