@@ -192,7 +192,15 @@ the chosen ring, one of:
   without running again.
 
 Linear is normalized to the maximum; dB counts down from it (floor −40 dB,
-10·log for energy). For a true far-field pattern the ring must be in the open
+10·log for energy). The bar also gives the **directivity index** (DI): the
+gain, in dB, of this pattern over an omnidirectional one against a diffuse
+field, integrated over the sphere for an axisymmetric half ring and over the
+circle (a 2D index) for a planar ring. The Map shows DI per frequency as a
+green bar.
+
+By **reciprocity**, a microphone's reception pattern is the radiation pattern
+of a source placed at its capsule: draw the microphone, put a point source
+where the capsule is, and read the pattern and the DI. For a true far-field pattern the ring must be in the open
 part of the scene, well away from the source compared with the wavelength and
 the source size, with `open` walls around.
 

@@ -183,9 +183,12 @@ export function mountProbes(element, state) {
     ctx.fillStyle = COLORS[0];
     pts.forEach((p, k) => { const t = (p.angle * Math.PI) / 180, r = radial(values[k]) * R; ctx.fillRect(cx + r * Math.cos(t) - 2, cy - r * Math.sin(t) - 2, 4, 4); });
     const best = values.indexOf(vmax);
+    const axisymHalf = scene.mode === "axisym" && pts.every((p) => p.y >= g.cy - 1e-12);
+    const diValues = measure === "energy" ? values.map(Math.sqrt) : values;
+    const diDb = directivityIndex(pts, diValues, axisymHalf);
     const unit = measure === "energy" ? "Pa²·s" : measure === "spectrum" ? "Pa·s" : "Pa";
     const how = measure === "rms" && Number.isFinite(window) ? ` (last ${(window * store.dt * 1000).toFixed(1)} ms)` : measure === "spectrum" ? ` ${freq} Hz` : "";
-    info.textContent = `${g.id}: ${measure}${how} max ${vmax.toPrecision(3)} ${unit} at ${pts[best]?.angle.toFixed(0)}° · ${pts.length} probes · r ${g.r} ${scene.units}`;
+    info.textContent = `${g.id}: ${measure}${how} max ${vmax.toPrecision(3)} ${unit} at ${pts[best]?.angle.toFixed(0)}° · DI ${diDb.toFixed(1)} dB${axisymHalf ? "" : " (2D)"} · ${pts.length} probes · r ${g.r} ${scene.units}`;
   }
 
   // Rebuild the ring list only when it changed: this runs every frame, and a
@@ -197,6 +200,29 @@ export function mountProbes(element, state) {
     ringSel.replaceChildren(...rings.map((g) => { const o = document.createElement("option"); o.value = g.id; o.textContent = g.id; return o; }));
     if (rings.some((g) => g.id === keep)) ringSel.value = keep;
     ringSel.dataset.ids = ids;
+  }
+
+  /**
+   * Directivity index of a pattern: 10 log of the ratio between an
+   * omnidirectional source and this one for the same on-axis level, i.e. the
+   * gain against a diffuse (ambient) field. `values` are amplitudes at the
+   * ring's probes (sorted by angle). Axisymmetric half rings integrate over
+   * the sphere (weight sin θ); planar rings over the circle, a 2D index.
+   */
+  function directivityIndex(pts, values, axisym) {
+    const m = Math.max(...values, 1e-30);
+    const d2 = values.map((v) => (v / m) ** 2);
+    let num = 0, den = 0;
+    const n = pts.length;
+    const full = n > 1 && Math.abs((pts[n - 1].angle - pts[0].angle) - 360 * (n - 1) / n) < 1e-6;
+    const segs = full ? n : n - 1;
+    for (let k = 0; k < segs; k++) {
+      const a0 = pts[k].angle * Math.PI / 180, a1 = pts[(k + 1) % n].angle * Math.PI / 180 + (k + 1 === n ? 2 * Math.PI : 0);
+      const da = a1 - a0;
+      const w = axisym ? (Math.sin(a0) + Math.sin(a1)) / 2 : 1;
+      num += w * da; den += w * da * (d2[k] + d2[(k + 1) % n]) / 2;
+    }
+    return den > 0 ? 10 * Math.log10(num / den) : 0;
   }
 
   // The ring's probes, sorted by angle, for the chosen ring.
@@ -230,7 +256,8 @@ export function mountProbes(element, state) {
         const fr = fmin + (fmax - fmin) * k / (NF - 1);
         const mags = pts.map((p) => store.spectrum(p.i, fr));
         const m = Math.max(...mags, 1e-30);
-        rows.push({ f: fr, db: mags.map((v) => Math.max(FLOOR, 20 * Math.log10(Math.max(v, 1e-30) / m))), max: m, best: pts[mags.indexOf(m)].angle });
+        const axisymHalf = scene.mode === "axisym" && pts.every((p) => p.y >= g.cy - 1e-12);
+        rows.push({ f: fr, db: mags.map((v) => Math.max(FLOOR, 20 * Math.log10(Math.max(v, 1e-30) / m))), max: m, best: pts[mags.indexOf(m)].angle, di: directivityIndex(pts, mags, axisymHalf) });
       }
       mapCache = { key, rows };
     }
@@ -283,8 +310,12 @@ export function mountProbes(element, state) {
       ctx.fillStyle = "#9aa0ab"; ctx.fillText("0 dB", bx + 14, bt + 10); ctx.fillText(`${FLOOR} dB`, bx + 14, bt + bh);
       ctx.fillStyle = "#82aaff";
       for (let k = 0; k < NF; k++) { const d = Math.max(-40, 20 * Math.log10(Math.max(srcLevel[k], 1e-9))); ctx.fillRect(bx - 14, bt + bh - (k + 1) * bh / NF, 8 * (1 + d / 40), Math.ceil(bh / NF)); }
-      ctx.fillStyle = "#9aa0ab"; ctx.fillText("source", bx - 24, bt + bh + 12);
-      info.textContent = `${g.id}: |P| per frequency (radius), each ring normalized to its loudest angle · ${pts.length} probes · ${NF} frequencies` + (weakRows ? ` · ${weakRows} rings greyed: source below −20 dB there` : "");
+      // The directivity index per frequency, 0 to 20 dB, in green.
+      ctx.fillStyle = "#3ec281";
+      for (let k = 0; k < NF; k++) ctx.fillRect(bx - 40, bt + bh - (k + 1) * bh / NF, 22 * Math.min(1, Math.max(0, rows[k].di / 20)), Math.ceil(bh / NF));
+      ctx.fillStyle = "#9aa0ab"; ctx.fillText("source", bx - 24, bt + bh + 12); ctx.fillText("DI 0–20", bx - 44, bt + 10);
+      const diAt = (f) => rows.reduce((a, b) => (Math.abs(b.f - f) < Math.abs(a.f - f) ? b : a)).di.toFixed(1);
+      info.textContent = `${g.id}: |P| per frequency (radius), each ring normalized to its loudest angle · DI ${diAt(fmin)} dB at ${fmin} Hz, ${diAt((fmin + fmax) / 2)} dB at ${((fmin + fmax) / 2).toFixed(0)} Hz, ${diAt(fmax)} dB at ${fmax} Hz` + (weakRows ? ` · ${weakRows} rings greyed: source below −20 dB there` : "");
       return;
     }
     const L = 52, R = 70, T = 10, B = 24;
@@ -309,7 +340,9 @@ export function mountProbes(element, state) {
     for (let j = 0; j < pts.length; j += step) ctx.fillText(`${pts[j].angle.toFixed(0)}°`, L + (j + 0.5) * cw - 8, H - 6);
     // The colour bar.
     for (let i = 0; i < 100; i++) { const t = Math.round(255 * i / 99); ctx.fillStyle = `rgb(${lutData[t * 4]},${lutData[t * 4 + 1]},${lutData[t * 4 + 2]})`; ctx.fillRect(W - R + 14, H - B - (i + 1) * (H - T - B) / 100, 10, Math.ceil((H - T - B) / 100)); }
-    ctx.fillStyle = "#9aa0ab"; ctx.fillText("0 dB", W - R + 28, T + 10); ctx.fillText(`${FLOOR} dB`, W - R + 28, H - B);
+    ctx.fillStyle = "#3ec281";
+    for (let k = 0; k < NF; k++) ctx.fillRect(W - R - 26, H - B - (k + 1) * ch, 22 * Math.min(1, Math.max(0, rows[k].di / 20)), Math.ceil(ch));
+    ctx.fillStyle = "#9aa0ab"; ctx.fillText("0 dB", W - R + 28, T + 10); ctx.fillText(`${FLOOR} dB`, W - R + 28, H - B); ctx.fillText("DI", W - R - 24, T + 10);
     const weak = srcLevel.filter((v) => v < 0.1).length;
     info.textContent = `${g.id}: |P| per frequency, each row normalized to its loudest angle · ${pts.length} probes · ${NF} frequencies` + (weak ? ` · ${weak} rows greyed: source below −20 dB there (thin blue bar = source level)` : "");
   }
