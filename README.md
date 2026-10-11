@@ -1,107 +1,112 @@
 # SoundWaves
 
-A browser-based acoustic wave simulator. Draw walls (or describe them in a
-small text format), pick materials, sources and probes, then watch the
-pressure field propagate. The wave equation is solved by finite elements
-(P1 triangles) in Rust compiled to WebAssembly; the interface is a one-window
-workshop with dockable panels, in the style of the papyDeck workshop.
+Sound in a scene you draw, simulated in your browser. Draw walls, pick their
+materials, add a source and probes, press Run, and watch the pressure field
+propagate; put probes on a ring and read the radiation diagram. The wave
+equation is solved by finite elements in Rust compiled to WebAssembly; the
+interface is a one-window workshop with dockable panels; every scene is also a
+small text file you can write by hand.
 
-Version 1 is two-dimensional: a **planar** mode (walls extruded out of the
-screen) and an **axisymmetric** mode (a horizontal axis of revolution, the
-profile drawn above it: tubes, horns, loudspeakers). Full 3D is a later goal.
+**Try it: <https://sw.papydoctor.eu>** — nothing to install, no account needed.
+**Read the [user guide](docs/user-guide.md)** for the interface, the tools, the
+scene format and the physics settings.
 
-```sh
-make dev          # http://localhost:8081, static mode — needs Go only (ADDR=:9000 for another port)
-make dev-db       # same, with accounts and saved projects on the local Postgres
-make wasm         # rebuild the engine (Rust + wasm-pack); the output is committed
-make test         # Go tests (the API, on an in-memory store)
-make test-db      # the Postgres store, on a throwaway database
-make test-app     # JS unit tests (node --test)
-make test-wasm    # Rust tests, native: mesh quality, room modes, energy, plane waves, reflection, 1/r
-make smoke        # drive the running app in headless Chromium: mesh, run, screenshot
-```
+Version 1 is two-dimensional, in two flavours: **planar** (walls extruded out
+of the screen: rooms, ducts, screens) and **axisymmetric** (a body of
+revolution around a horizontal axis: tubes, horns, loudspeakers). Walls can be
+rigid, absorbing (by coefficient or impedance), open, mirror lines, or moving
+pistons; thin baffles and symmetric half-scenes are supported. Examples in
+[`examples/`](examples/) cover each case.
 
-## The scene text
-
-A scene is a small text file, `.sw`: one statement per line, `#` comments, an
-indented line continues the one above, `key=value` options, and `@material`
-inside a point list switches the material of the segments that follow. The
-viewport, the inspector and the text panel all edit the same scene; the text
-is regenerated from it, so everything drawn is also written.
+## A scene, in text
 
 ```
 soundwaves 1
 units m
-mode planar                      # or axisym: x along the axis, y the radius, drawn above y = 0
+mode planar
 medium air c=343 rho=1.2
 material rigid rigid
-material panel absorb alpha=0.6  # or: impedance zeta=3.5, open, symmetry
-material drive piston signal=sine f0=300 amp=0.01   # a moving wall, velocity in m/s
+material panel absorb alpha=0.6
+material door open
 polyline room closed material=rigid
-    0 0   6 0   6 1 @panel   6 3   0 4
-rect pillar 2.5 1.5 0.5 0.5 material=drive
-circle column 4.5 3 0.3 material=panel
-region air 1 1 medium=air        # a seed inside every area to simulate
+    0 0   6 0   6 1 @panel   6 3 @door   6 3.9 @rigid   6 4   0 4
+rect pillar 2.5 1.5 0.5 0.5
+region air 1 1 medium=air
 source s1 point 1 2 signal=ricker f0=600 amp=1
 probe p1 5 2
-ring pat 1 2 2.5 n=36            # 36 probes on a circle: the Pattern tab plots the radiation diagram
-sim fmax=2000 npl=10 duration=0.03 cfl=0.9 angle=28
-view center=3,2 scale=120 colormap=rwb gain=auto
+sim fmax=2000 npl=10 duration=0.03
 ```
 
-Walls: `polyline`, `line`, `rect`, `circle`, `arc cx cy r a0 a1`. A wall drawn
-inside a region is a thin baffle. A wall of material kind `symmetry` is a
-mirror line: draw half (or a quarter) of a symmetric scene, the viewport shows
-the mirror image, and the physics is exact since a mirror is the same natural
-condition as a rigid wall for the pressure. Sources: a `point` monopole, or any wall segment given a
-`piston` material, which moves with the material's signal (`gauss`, `ricker`,
-`burst cycles=n`, `sine`). A piston drawn inside the air is a thin moving
-wall; `sides=both` (default) is a breathing membrane, `sides=plate` a rigid
-plate pushing on its left and pulling on its right (dipole), `sides=left` or
-`right` moves one face only, the other staying rigid. Left is on the left of
-the drawing direction; the viewport ticks the moving faces.
+The viewport, the inspector and the text panel edit the same scene: whatever
+you draw is written, whatever you write is drawn. The [guide](docs/user-guide.md#4-the-scene-text)
+lists every statement and option.
 
-Probes record the pressure against time (Signals tab). A `ring` places n
-probes on a circle of a given centre and radius (`a0`/`a1` limit the angles;
-in axisymmetric mode only the half above the axis exists); the Pattern tab of
-the Probes panel plots the peak or RMS pressure against the angle, linear or
-in dB: the radiation diagram.
+## Running it yourself
+
+```sh
+make dev          # http://localhost:8081, static mode — needs Go only
+make dev-db       # same, with share links, accounts and projects on the local Postgres
+```
+
+The web app is plain ES modules, no npm and no build step; the wasm engine is
+committed, so Go is the only requirement to run. To work on the engine:
+
+```sh
+make wasm         # rebuild the engine (Rust + wasm-pack)
+make test-wasm    # Rust tests, native: mesh quality, room modes, energy, plane waves, reflection, 1/r
+make test-app     # JS tests: the scene format, the examples (meshed and run)
+make test         # Go tests: the API on an in-memory store
+make test-db      # the Postgres store, on a throwaway database
+make smoke        # drive the running app in headless Chromium: mesh, run, screenshot
+```
+
+Layout:
+
+- `engine/` — the Rust crate: mesher (spade), P1 assembly, explicit leapfrog time stepping.
+- `internal/web/app/` — the web app: one HTML page, ES modules served as is, two vendored libraries (dockview, CodeMirror, see `vendor/VENDOR.md`).
+- `cmd/soundwaves`, `internal/` — the Go server: the app, shared links, accounts, projects.
+- `examples/` — scene files and the menu's `index.json`, served and embedded.
+- `deploy/` — systemd unit, nginx site, install and release scripts.
+- `tools/smoke.mjs` — the headless-browser harness used by `make smoke`.
 
 ## How it computes
 
 P1 triangles on a constrained Delaunay mesh (spade), element size
 `c / (fmax · npl)`. Lumped mass and lumped boundary damping make the leapfrog
-fully explicit: one sparse product per step, at a few hundred steps per second
-for 150 000 nodes. Rigid walls are natural; absorbing and open walls are Robin
-terms with the normalized impedance `zeta` (open: 1, absorb: `(1+R)/(1-R)` with
-`R = sqrt(1-alpha)`). Axisymmetric integrals carry the radius exactly; the axis
-edge is recognised automatically. Frequency-domain and eigenmode solvers are
-the next step: the matrices are already assembled on one shared pattern.
+fully explicit: one sparse product per step, a few hundred steps per second
+for 150 000 nodes. Rigid walls are the natural condition; absorbing and open
+walls are Robin terms with the normalized impedance `zeta` (open: 1, absorb:
+`(1+R)/(1-R)` with `R = √(1-alpha)`); a symmetry line is a rigid wall;
+pistons are Neumann loads from the signal's acceleration. Axisymmetric
+integrals carry the radius exactly and the axis edge is recognised
+automatically. Thin walls split the mesh nodes along them. Frequency-domain
+and eigenmode solvers are the natural next step: the matrices are already
+assembled on one shared sparse pattern.
+
+The engine's tests check the physics against theory: the first axial mode of
+a rectangular room, energy conservation with rigid walls, the speed and
+amplitude of a plane wave in a tube, the reflection coefficient of impedance
+and open ends, the 1/r decay of a point source, a sealed baffle, a symmetric
+half-room against the full room, the faces of a piston.
 
 ## Saving
 
-Three ways, none of which needs the others:
-
-- **Files**: the ↓ button downloads the scene as `.sw`, Open reads one back.
-- **This browser**: Save without an account keeps the scene by name in the
-  browser's storage; Open lists them. Handy, not a vault.
-- **A link**: Share puts the scene on the server behind an anonymous address
-  (`/?s=…`) anyone can open; the browser that made it keeps the key and can
-  update it with Share again. Links unopened for a year are dropped.
-
-An account (Google or GitHub) adds a project list that follows you across
-devices, with conflict detection between tabs.
+Three ways, none of which needs the others: the ↓ button downloads the scene
+as a `.sw` file; **Save** without an account keeps it by name in the browser;
+**Share** puts it on the server behind an anonymous link anyone can open, that
+its author's browser can update. An account (Google or GitHub) adds a project
+list that follows you across devices.
 
 ## Server
 
 Without `SW_DATABASE_URL` the binary serves the app and nothing else: scenes
-are downloaded and opened as files, nothing else is offered. With it, shared
-links, accounts and projects live in Postgres (migrations embedded, applied
-at start-up). Sign-in is by Google
-(OpenID Connect) or GitHub (OAuth 2.0 with PKCE), whichever has a client id in
-the environment; the same verified address joins the two into one account.
-`SW_DEV=true` adds the development sign-in by name. `SW_APP_DIR` serves the app
-from disk instead of the embedded copy.
+are downloaded and opened as files. With it, shared links, accounts and
+projects live in Postgres (migrations embedded, applied at start-up). Sign-in
+is by Google (OpenID Connect) or GitHub (OAuth 2.0 with PKCE), whichever has a
+client id in the environment; the same verified address joins the two into
+one account. `SW_DEV=true` adds a development sign-in by name. `SW_APP_DIR`
+and `SW_EXAMPLES_DIR` serve the app and the examples from disk instead of the
+embedded copies. `deploy/env.example` lists every variable.
 
 ### Deployment
 
@@ -114,19 +119,12 @@ SW_DOMAIN=waves.example.org ./deploy/setup.sh             # user, dirs, database
 ssh $SW_HOST vi /etc/soundwaves/env                       # the OAuth client ids and secrets
 ```
 
-then, for every release:
+then, for every release, `make deploy`: tests, static Linux build, upload,
+migrations, restart, health check. The OAuth applications take
+`https://<domain>/auth/google/callback` and `https://<domain>/auth/github/callback`
+as redirect URLs.
 
-```sh
-make deploy          # tests, static Linux build, upload, migrations, restart, health check
-```
+## License
 
-The OAuth applications take `https://<domain>/auth/google/callback` and
-`https://<domain>/auth/github/callback` as redirect URLs. `deploy/env.example`
-lists every variable.
-
-Layout:
-
-- `engine/` — the Rust crate: mesher (spade), P1 assembly, explicit leapfrog time stepping.
-- `internal/web/app/` — the web app: one HTML page, ES modules served as is, two vendored libraries (dockview, CodeMirror). No npm, no build step.
-- `cmd/soundwaves`, `internal/web` — the Go server. For now it only serves the app; accounts and saved projects come later.
-- `examples/` — scene files (`.sw`) and the menu's `index.json`; served by the Go server and embedded in the binary.
+MIT, see [LICENSE](LICENSE). The vendored libraries and the dependencies are
+MIT or Apache-2.0, see `internal/web/app/vendor/VENDOR.md`.

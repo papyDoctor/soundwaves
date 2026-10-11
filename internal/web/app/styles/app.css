@@ -69,6 +69,7 @@ body {
 .button.small { padding: 0 0.4rem; line-height: 1.3; }
 .button.on { border-color: var(--accent); color: var(--accent); }
 .button[disabled] { opacity: 0.5; cursor: default; }
+a.button { text-decoration: none; display: inline-block; }
 
 /* ------------------------------------------------------------------------- */
 /* The docks. dockview provides the mechanics; we give it our colours.       */
