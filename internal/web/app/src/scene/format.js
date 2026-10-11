@@ -14,7 +14,7 @@ const NUMBER = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
 const NAME = /^[A-Za-z_][\w-]*$/;
 
 export const SIGNAL_TYPES = ["gauss", "ricker", "burst", "sine"];
-export const MATERIAL_KINDS = ["rigid", "absorb", "impedance", "open", "symmetry", "piston"];
+export const MATERIAL_KINDS = ["rigid", "absorb", "impedance", "open", "symmetry", "piston", "screen"];
 export const PISTON_SIDES = ["both", "plate", "left", "right"];
 export const UNITS = { m: 1, cm: 0.01, mm: 0.001 };
 export const STATEMENTS = ["soundwaves", "units", "mode", "medium", "material", "polyline", "line", "rect", "circle", "arc", "region", "source", "probe", "ring", "sim", "view"];
@@ -163,6 +163,13 @@ export function parse(text) {
         const m = { name, kind };
         if (kind === "absorb") m.alpha = optNum(st, options, "alpha", 0.5);
         if (kind === "impedance") m.zeta = optNum(st, options, "zeta", 2);
+        if (kind === "screen") {
+          // Flow resistance: in rayl (Pa.s/m), or normalized to rho c with r=.
+          if ("rayl" in options) m.rayl = optNum(st, options, "rayl", 200);
+          else if ("r" in options) m.rayl = optNum(st, options, "r", 0.5) * 343 * 1.2;
+          else m.rayl = 200;
+          if (!(m.rayl > 0)) { err(st, "a screen needs a positive resistance (rayl= or r=)"); break; }
+        }
         if (kind === "piston") {
           m.signal = readSignal(st, options); if (!m.signal) break;
           if ("sides" in options) { if (PISTON_SIDES.includes(options.sides)) m.sides = options.sides; else err(st, `sides must be one of ${PISTON_SIDES.join(", ")}`); }
@@ -321,6 +328,7 @@ export function serialize(scene) {
     if (m.kind === "absorb") line += opt("alpha", m.alpha);
     if (m.kind === "impedance") line += opt("zeta", m.zeta);
     if (m.kind === "piston") line += signalOpts(m.signal || { type: "sine", f0: 500, amp: 0.01 }) + (m.sides && m.sides !== "both" ? opt("sides", m.sides) : "");
+    if (m.kind === "screen") line += opt("rayl", m.rayl);
     out.push(...withComments(m, line));
   }
   for (const e of scene.elements) {

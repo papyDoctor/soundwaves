@@ -178,3 +178,15 @@ test("a probe ring expands into probes, half of them in axisym", () => {
   assert.ok(pts.every((p) => p.y >= 0) && pts.length === 19, `${pts.length} points above the axis`);
   assert.equal(scene.toEngineJson().probes.length, 19);
 });
+
+test("a screen material takes rayl or a normalized r", () => {
+  const { scene, errors } = parse("soundwaves 1\nmedium air\nmaterial a screen rayl=200\nmaterial b screen r=0.5\nmaterial c screen\nregion r 0 0\n");
+  assert.deepEqual(errors, []);
+  assert.equal(scene.material("a").rayl, 200);
+  assert.ok(Math.abs(scene.material("b").rayl - 205.8) < 0.1);
+  assert.equal(scene.material("c").rayl, 200);
+  const j = scene.toEngineJson();
+  assert.equal(j.materials[0].kind, "screen");
+  assert.equal(j.materials[0].resistance, 200);
+  assert.match(serialize(scene), /material a screen rayl=200/);
+});

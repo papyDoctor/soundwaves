@@ -280,3 +280,47 @@ fn an_interior_piston_pushes_on_the_sides_it_is_told_to() {
     let (l, r) = run("right");
     assert!(peak(&l) < 1e-6 * peak(&r), "right only: left side silent");
 }
+
+#[test]
+fn a_porous_screen_transmits_and_reflects_by_its_resistance() {
+    // A duct with a screen across it: at normal incidence the pressure
+    // transmission is 2 / (2 + r) and the reflection r / (2 + r), r = R / (rho c).
+    for (r, label) in [(1.0, "matched"), (0.25, "light cloth"), (1e-4, "transparent"), (1e4, "wall")] {
+        let big_r = r * 1.2 * 343.0;
+        let json = format!(
+            r#"{{
+          "mode": "planar",
+          "media": [{{"name":"air","c":343.0,"rho":1.2}}],
+          "materials": [{{"name":"rigid","kind":"rigid"}}, {{"name":"open","kind":"open","zeta":1.0}},
+                        {{"name":"cloth","kind":"screen","resistance":{big_r}}},
+                        {{"name":"drive","kind":"piston","signal":{{"type":"gauss","f0":2000,"amp":0.01}}}}],
+          "elements": [{{"kind":"polyline","id":"duct","closed":true,"pts":[[0,0],[2,0],[2,0.1],[0,0.1]],"materials":[0,1,0,3]}},
+                       {{"kind":"polyline","id":"screen","closed":false,"pts":[[1,0],[1,0.1]],"materials":[2]}}],
+          "regions": [{{"id":"l","seed":[0.5,0.05],"medium":0}}, {{"id":"r","seed":[1.5,0.05],"medium":0}}],
+          "probes": [{{"id":"before","x":0.5,"y":0.05}}, {{"id":"after","x":1.5,"y":0.05}}],
+          "sim": {{"fmax":4000,"nodes_per_wavelength":10,"duration":0.0075,"cfl":0.9,"angle":28}}
+        }}"#
+        );
+        let (scene, mesh, sys) = build(&json);
+        assert!(!mesh.twins.is_empty(), "the screen must split nodes into twins");
+        assert!(!sys.couplings.is_empty(), "the screen must couple the twins");
+        let mut st = stepper(&scene, &sys);
+        let (nb, na) = (mesh.probe_nodes[0] as usize, mesh.probe_nodes[1] as usize);
+        let (mut before, mut after) = (Vec::new(), Vec::new());
+        while !st.finished() {
+            st.advance(&sys, 1).unwrap();
+            before.push(st.pressure()[nb]);
+            after.push(st.pressure()[na]);
+        }
+        let peak = |v: &[f64]| v.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+        // The incident pulse passes x = 0.5 before 3 ms (t0 = 4 sigma = 0.64 ms, 1.46 ms of travel);
+        // the reflection from the screen comes back around 4.4 ms, before the open-end echo.
+        let split = (0.0032 / st.dt) as usize;
+        let incident = peak(&before[..split]);
+        let reflected = peak(&before[split..(0.0060 / st.dt) as usize]);
+        let transmitted = peak(&after);
+        let (t_th, r_th) = (2.0 / (2.0 + r), r / (2.0 + r));
+        assert!((transmitted / incident - t_th).abs() < 0.04, "{label}: transmitted {} vs {t_th}", transmitted / incident);
+        assert!((reflected / incident - r_th).abs() < 0.04, "{label}: reflected {} vs {r_th}", reflected / incident);
+    }
+}
