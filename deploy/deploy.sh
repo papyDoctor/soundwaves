@@ -1,7 +1,7 @@
 #!/bin/sh
 # Deployment of SoundWaves.
 #
-#   ./deploy/deploy.sh [user@host]
+#   SW_HOST=user@host ./deploy/deploy.sh      (or: ./deploy/deploy.sh user@host)
 #
 # Builds a static Linux binary (the web app and the wasm engine are embedded),
 # sends it, applies the migrations with the service's own environment, swaps
@@ -11,7 +11,7 @@
 
 set -eu
 
-HOST="${1:-root@51.15.120.244}"
+HOST="${1:-${SW_HOST:?set SW_HOST=user@host, the machine to deploy to}}"
 TMP=".deploy-tmp"
 
 cd "$(dirname "$0")/.."

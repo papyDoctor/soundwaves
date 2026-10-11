@@ -1,7 +1,7 @@
 #!/bin/sh
 # First installation on the server, run ONCE from this machine:
 #
-#   SW_DOMAIN=waves.example.org ./deploy/setup.sh [user@host]
+#   SW_DOMAIN=waves.example.org SW_HOST=user@host ./deploy/setup.sh
 #
 # Creates the system user, the directories, the Postgres role and database,
 # the environment file from env.example, the nginx site, and asks certbot for
@@ -10,7 +10,7 @@
 
 set -eu
 
-HOST="${1:-root@51.15.120.244}"
+HOST="${1:-${SW_HOST:?set SW_HOST=user@host, the machine to install on}}"
 : "${SW_DOMAIN:?set SW_DOMAIN to the host name of the site, e.g. waves.example.org}"
 
 cd "$(dirname "$0")/.."

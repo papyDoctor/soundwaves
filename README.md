@@ -109,8 +109,9 @@ One machine with nginx, certbot and systemd, Postgres on the local socket, the
 service as its own user behind nginx on 127.0.0.1:8090. Once:
 
 ```sh
-SW_DOMAIN=waves.example.org ./deploy/setup.sh root@host   # user, dirs, database, env file, nginx, certificate
-ssh root@host vi /etc/soundwaves/env                      # the OAuth client ids and secrets
+export SW_HOST=root@host                                  # the machine; never written in the repository
+SW_DOMAIN=waves.example.org ./deploy/setup.sh             # user, dirs, database, env file, nginx, certificate
+ssh $SW_HOST vi /etc/soundwaves/env                       # the OAuth client ids and secrets
 ```
 
 then, for every release:

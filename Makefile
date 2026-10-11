@@ -78,6 +78,7 @@ smoke:
 	SHOT=$(BUILD)/smoke.png node tools/smoke.mjs $(SW_URL) 5 \
 	  "(async()=>{await sw.actions.toggleRun(); await new Promise(r=>setTimeout(r,3000)); return JSON.stringify({running: sw.state.sim.running, time: sw.state.sim.time, rate: Math.round(sw.state.sim.rate), nodes: sw.state.sim.mesh && sw.state.sim.mesh.xy.length/2, probes: sw.state.probes.length})})()"
 
+# SW_HOST=user@host names the machine; it is not written anywhere in the repository.
 deploy:
 	./deploy/deploy.sh
 
