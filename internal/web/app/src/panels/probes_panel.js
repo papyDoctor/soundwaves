@@ -60,6 +60,7 @@ export function mountProbes(element, state) {
       <select data-role="measure" title="What is plotted at each angle. peak: largest |p| (pulses). RMS: over the last 5 periods of the source, the steady state of a sine. energy: integral of p² over the run (pulses). spectrum: |P| at the frequency below, from the Fourier transform of the recording (use a broadband pulse)" hidden><option value="peak">peak</option><option value="rms">RMS</option><option value="energy">energy</option><option value="spectrum">spectrum at</option></select>
       <label data-role="freq-row" hidden title="The frequency of the spectrum pattern, Hz"><input type="number" data-role="freq" value="1000" min="1" step="50" style="width:5rem"> Hz</label>
       <label data-role="band-row" hidden title="The frequency band of the map, Hz: keep it under fmax / 2.5 and inside the source's spectrum"><input type="number" data-role="fmin" value="500" min="1" step="50" style="width:4.5rem"> – <input type="number" data-role="fmax" value="3500" min="1" step="50" style="width:4.5rem"> Hz</label>
+      <select data-role="layout" hidden title="polar: angle around, frequency as the radius (low in the centre). flat: angle across, frequency up"><option value="polar">polar</option><option value="flat">flat</option></select>
       <select data-role="scale" title="Linear, normalized to the maximum, or decibels below it" hidden><option value="lin">linear</option><option value="db">dB</option></select>
       <span class="space"></span>
       <span class="soft mono" data-role="info"></span>
@@ -67,7 +68,7 @@ export function mountProbes(element, state) {
     </div><div class="panel-body"><canvas data-role="plot"></canvas></div>`;
   const q = (r) => element.querySelector(`[data-role="${r}"]`);
   const canvas = q("plot"), legend = q("legend"), info = q("info"), ringSel = q("ring"), measureSel = q("measure"), scaleSel = q("scale");
-  const freqRow = q("freq-row"), freqIn = q("freq"), bandRow = q("band-row"), fminIn = q("fmin"), fmaxIn = q("fmax");
+  const freqRow = q("freq-row"), freqIn = q("freq"), bandRow = q("band-row"), fminIn = q("fmin"), fmaxIn = q("fmax"), layoutSel = q("layout");
   const ctx = canvas.getContext("2d");
   state.probes ??= new ProbeStore();
   let view = "signals";
@@ -78,13 +79,13 @@ export function mountProbes(element, state) {
     ringSel.hidden = v === "signals";
     measureSel.hidden = scaleSel.hidden = v !== "pattern";
     freqRow.hidden = !(v === "pattern" && measureSel.value === "spectrum");
-    bandRow.hidden = v !== "map";
+    bandRow.hidden = layoutSel.hidden = v !== "map";
     draw();
   }
   q("signals").addEventListener("click", () => setView("signals"));
   q("pattern").addEventListener("click", () => setView("pattern"));
   q("map").addEventListener("click", () => setView("map"));
-  for (const s of [ringSel, scaleSel, freqIn, fminIn, fmaxIn]) s.addEventListener("change", draw);
+  for (const s of [ringSel, scaleSel, freqIn, fminIn, fmaxIn, layoutSel]) s.addEventListener("change", draw);
   measureSel.addEventListener("change", () => { freqRow.hidden = measureSel.value !== "spectrum"; draw(); });
 
   function frame() {
@@ -239,14 +240,59 @@ export function mountProbes(element, state) {
     const sources = [...scene.sources.map((s) => s.signal), ...scene.materials.filter((m) => m.kind === "piston" && m.signal).map((m) => m.signal)];
     const srcLevel = rows.map(() => 0);
     for (const sig of sources) { const { rel } = sourceSpectrum(sig, 1, Math.max(fmax, 4 * sig.f0), 300); const top = Math.max(...rel); rows.forEach((r, k) => { const i = Math.min(299, Math.round((r.f - 1) / (Math.max(fmax, 4 * sig.f0) - 1) * 299)); srcLevel[k] = Math.max(srcLevel[k], rel[i] / top); }); }
+    const lutData = lut("viridis");
+    const colour = (d) => { const t = Math.round(255 * (1 - d / FLOOR)); return `rgb(${lutData[t * 4]},${lutData[t * 4 + 1]},${lutData[t * 4 + 2]})`; };
+    const weakRows = srcLevel.filter((v) => v < 0.1).length;
+    if (layoutSel.value === "polar") {
+      // Angle around, frequency as the radius: fmin in the centre, fmax at the rim.
+      const half = scene.mode === "axisym" && pts.every((p) => p.y >= g.cy - 1e-12);
+      const cx = W / 2 - 30, cy = half ? H - 24 : H / 2, R0 = Math.min(W / 2 - 110, half ? H - 44 : H / 2 - 26);
+      if (R0 < 30) return;
+      const full = Math.abs(g.a1 - g.a0) >= 360 - 1e-9;
+      const spanDeg = full ? 360 : Math.abs(g.a1 - g.a0);
+      const cellDeg = spanDeg / (full ? pts.length : Math.max(1, pts.length - 1));
+      const r0 = R0 * 0.12; // a small hole in the middle, so fmin is not a point
+      for (let k = 0; k < NF; k++) {
+        const ri = r0 + (R0 - r0) * k / NF, ro = r0 + (R0 - r0) * (k + 1) / NF + 0.6;
+        rows[k].db.forEach((d, j) => {
+          const a0 = ((pts[j].angle - cellDeg / 2) * Math.PI) / 180, a1 = ((pts[j].angle + cellDeg / 2) * Math.PI) / 180;
+          ctx.fillStyle = colour(d);
+          ctx.beginPath(); ctx.arc(cx, cy, ro, -a1, -a0); ctx.arc(cx, cy, ri, -a0, -a1, true); ctx.closePath(); ctx.fill();
+        });
+        if (sources.length && srcLevel[k] < 0.1) {
+          ctx.fillStyle = "#1b1d22cc"; ctx.beginPath(); ctx.arc(cx, cy, ro, 0, 2 * Math.PI); ctx.arc(cx, cy, ri, 2 * Math.PI, 0, true); ctx.closePath(); ctx.fill();
+        }
+      }
+      // Frequency rings and angle spokes, with labels.
+      ctx.strokeStyle = "#ffffff30"; ctx.lineWidth = 1; ctx.fillStyle = "#e4e6ea"; ctx.font = "10px ui-monospace, monospace";
+      for (let k = 0; k <= 4; k++) {
+        const fr = fmin + (fmax - fmin) * k / 4, rr = r0 + (R0 - r0) * k / 4;
+        ctx.beginPath(); ctx.arc(cx, cy, rr, 0, 2 * Math.PI); ctx.stroke();
+        ctx.fillText(`${fr.toFixed(0)}`, cx + rr * 0.7071 + 3, cy - rr * 0.7071 - 2);
+      }
+      for (let a = 0; a < 360; a += 30) {
+        if (half && a > 180) continue;
+        const t = (a * Math.PI) / 180;
+        ctx.beginPath(); ctx.moveTo(cx + r0 * Math.cos(t), cy - r0 * Math.sin(t)); ctx.lineTo(cx + R0 * Math.cos(t), cy - R0 * Math.sin(t)); ctx.stroke();
+        ctx.fillStyle = "#9aa0ab"; ctx.fillText(`${a}°`, cx + (R0 + 14) * Math.cos(t) - 8, cy - (R0 + 14) * Math.sin(t) + 4); ctx.fillStyle = "#e4e6ea";
+      }
+      ctx.fillStyle = "#9aa0ab"; ctx.fillText("Hz on the rings", cx + R0 * 0.7071 + 3, cy - R0 * 0.7071 - 14);
+      // The colour bar and the source level, on the right.
+      const bx = W - 60, bt = 14, bh = H - 40;
+      for (let i = 0; i < 100; i++) { ctx.fillStyle = colour(FLOOR * (1 - i / 99)); ctx.fillRect(bx, bt + bh - (i + 1) * bh / 100, 10, Math.ceil(bh / 100)); }
+      ctx.fillStyle = "#9aa0ab"; ctx.fillText("0 dB", bx + 14, bt + 10); ctx.fillText(`${FLOOR} dB`, bx + 14, bt + bh);
+      ctx.fillStyle = "#82aaff";
+      for (let k = 0; k < NF; k++) { const d = Math.max(-40, 20 * Math.log10(Math.max(srcLevel[k], 1e-9))); ctx.fillRect(bx - 14, bt + bh - (k + 1) * bh / NF, 8 * (1 + d / 40), Math.ceil(bh / NF)); }
+      ctx.fillStyle = "#9aa0ab"; ctx.fillText("source", bx - 24, bt + bh + 12);
+      info.textContent = `${g.id}: |P| per frequency (radius), each ring normalized to its loudest angle · ${pts.length} probes · ${NF} frequencies` + (weakRows ? ` · ${weakRows} rings greyed: source below −20 dB there` : "");
+      return;
+    }
     const L = 52, R = 70, T = 10, B = 24;
     const cw = (W - L - R) / pts.length, ch = (H - T - B) / NF;
-    const lutData = lut("viridis");
     for (let k = 0; k < NF; k++) {
       const y = H - B - (k + 1) * ch;
       rows[k].db.forEach((d, j) => {
-        const t = Math.round(255 * (1 - d / FLOOR));
-        ctx.fillStyle = `rgb(${lutData[t * 4]},${lutData[t * 4 + 1]},${lutData[t * 4 + 2]})`;
+        ctx.fillStyle = colour(d);
         ctx.fillRect(L + j * cw, y, Math.ceil(cw), Math.ceil(ch));
       });
     }
