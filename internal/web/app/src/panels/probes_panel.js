@@ -8,6 +8,7 @@
  */
 import { lut } from "../sim/colormap.js";
 import { spectrum as sourceSpectrum } from "../scene/signals.js";
+import { farFieldAxisym } from "../scene/farfield.js";
 
 const COLORS = ["#4fd0e0", "#f0a040", "#c792ea", "#3ec281", "#e5534b", "#e2b93d", "#82aaff", "#ff9cac"];
 
@@ -34,14 +35,15 @@ export class ProbeStore {
   }
   /** Time integral of p²: the energy a pulse delivered, in Pa²·s. */
   energy(i) { let q = 0; for (const v of this.series[i] || []) q += v * v; return q * this.dt; }
-  /** |X(f)| of a series, by direct summation over the whole recording. */
-  spectrum(i, f) {
+  /** X(f) of a series as [re, im], by direct summation over the whole recording. */
+  spectrumComplex(i, f) {
     const s = this.series[i] || [];
     const w = 2 * Math.PI * f * this.dt;
     let re = 0, im = 0;
     for (let n = 0; n < s.length; n++) { re += s[n] * Math.cos(w * n); im -= s[n] * Math.sin(w * n); }
-    return Math.hypot(re, im) * this.dt;
+    return [re * this.dt, im * this.dt];
   }
+  spectrum(i, f) { const [re, im] = this.spectrumComplex(i, f); return Math.hypot(re, im); }
   csv(ids) {
     const lines = ["t_s," + ids.join(",")];
     for (let i = 0; i < this.length; i++) lines.push([(i + 1) * this.dt, ...this.series.map((s) => s[i])].map((v) => (typeof v === "number" ? v.toPrecision(8) : v)).join(","));
@@ -61,6 +63,7 @@ export function mountProbes(element, state) {
       <label data-role="freq-row" hidden title="The frequency of the spectrum pattern, Hz"><input type="number" data-role="freq" value="1000" min="1" step="50" style="width:5rem"> Hz</label>
       <label data-role="band-row" hidden title="The frequency band of the map, Hz: keep it under fmax / 2.5 and inside the source's spectrum"><input type="number" data-role="fmin" value="500" min="1" step="50" style="width:4.5rem"> – <input type="number" data-role="fmax" value="3500" min="1" step="50" style="width:4.5rem"> Hz</label>
       <select data-role="layout" hidden title="polar: angle around, frequency as the radius (low in the centre). flat: angle across, frequency up"><option value="polar">polar</option><option value="flat">flat</option></select>
+      <label data-role="far-row" hidden title="Extrapolate the ring's spectra to infinity (axisymmetric scenes, a half ring around everything, in open air): the true far-field pattern even when the ring is close. Needs about two probes per harmonic: n ≥ 2 (k r + 12)"><input type="checkbox" data-role="far"> far field</label>
       <select data-role="scale" title="Linear, normalized to the maximum, or decibels below it" hidden><option value="lin">linear</option><option value="db">dB</option></select>
       <span class="space"></span>
       <span class="soft mono" data-role="info"></span>
@@ -69,6 +72,7 @@ export function mountProbes(element, state) {
   const q = (r) => element.querySelector(`[data-role="${r}"]`);
   const canvas = q("plot"), legend = q("legend"), info = q("info"), ringSel = q("ring"), measureSel = q("measure"), scaleSel = q("scale");
   const freqRow = q("freq-row"), freqIn = q("freq"), bandRow = q("band-row"), fminIn = q("fmin"), fmaxIn = q("fmax"), layoutSel = q("layout");
+  const farRow = q("far-row"), farIn = q("far");
   const ctx = canvas.getContext("2d");
   state.probes ??= new ProbeStore();
   let view = "signals";
@@ -80,13 +84,24 @@ export function mountProbes(element, state) {
     measureSel.hidden = scaleSel.hidden = v !== "pattern";
     freqRow.hidden = !(v === "pattern" && measureSel.value === "spectrum");
     bandRow.hidden = layoutSel.hidden = v !== "map";
+    farRow.hidden = !(v === "map" || (v === "pattern" && measureSel.value === "spectrum")) || state.scene?.mode !== "axisym";
     draw();
   }
   q("signals").addEventListener("click", () => setView("signals"));
   q("pattern").addEventListener("click", () => setView("pattern"));
   q("map").addEventListener("click", () => setView("map"));
-  for (const s of [ringSel, scaleSel, freqIn, fminIn, fmaxIn, layoutSel]) s.addEventListener("change", draw);
-  measureSel.addEventListener("change", () => { freqRow.hidden = measureSel.value !== "spectrum"; draw(); });
+  for (const s of [ringSel, scaleSel, freqIn, fminIn, fmaxIn, layoutSel, farIn]) s.addEventListener("change", draw);
+  measureSel.addEventListener("change", () => { freqRow.hidden = measureSel.value !== "spectrum"; farRow.hidden = measureSel.value !== "spectrum" || state.scene?.mode !== "axisym"; draw(); });
+
+  /** |P| at each probe of the ring at frequency f: measured on the ring, or extrapolated to infinity. */
+  function ringSpectrum(scene, g, pts, f) {
+    const store = state.probes;
+    if (!farIn.checked || scene.mode !== "axisym") return pts.map((p) => store.spectrum(p.i, f));
+    const re = [], im = [];
+    for (const p of pts) { const [r, i] = store.spectrumComplex(p.i, f); re.push(r); im.push(i); }
+    const c = scene.media[0]?.c || 343, k = 2 * Math.PI * f / c, r0 = g.r * scene.unitScale();
+    return farFieldAxisym(pts.map((p) => p.angle), re, im, r0, k).magnitude;
+  }
 
   function frame() {
     const dpr = window.devicePixelRatio || 1;
@@ -149,7 +164,7 @@ export function mountProbes(element, state) {
     const f0s = [...scene.sources.map((s) => s.signal.f0), ...scene.materials.filter((m) => m.kind === "piston" && m.signal).map((m) => m.signal.f0)].filter((f) => f > 0);
     const window = f0s.length && store.dt > 0 ? (5 / Math.min(...f0s)) / store.dt : Infinity;
     const freq = Math.max(1, parseFloat(freqIn.value) || 1000);
-    const values = pts.map((p) => (measure === "rms" ? store.rms(p.i, window) : measure === "energy" ? store.energy(p.i) : measure === "spectrum" ? store.spectrum(p.i, freq) : store.peak(p.i)));
+    const values = measure === "spectrum" ? ringSpectrum(scene, g, pts, freq) : pts.map((p) => (measure === "rms" ? store.rms(p.i, window) : measure === "energy" ? store.energy(p.i) : store.peak(p.i)));
     const vmax = Math.max(...values, 1e-30);
     const FLOOR = -40;
     // Energy is a squared quantity: 10 log, not 20.
@@ -187,7 +202,7 @@ export function mountProbes(element, state) {
     const diValues = measure === "energy" ? values.map(Math.sqrt) : values;
     const diDb = directivityIndex(pts, diValues, axisymHalf);
     const unit = measure === "energy" ? "Pa²·s" : measure === "spectrum" ? "Pa·s" : "Pa";
-    const how = measure === "rms" && Number.isFinite(window) ? ` (last ${(window * store.dt * 1000).toFixed(1)} ms)` : measure === "spectrum" ? ` ${freq} Hz` : "";
+    const how = measure === "rms" && Number.isFinite(window) ? ` (last ${(window * store.dt * 1000).toFixed(1)} ms)` : measure === "spectrum" ? ` ${freq} Hz${farIn.checked && scene.mode === "axisym" ? ", far field" : ""}` : "";
     info.textContent = `${g.id}: ${measure}${how} max ${vmax.toPrecision(3)} ${unit} at ${pts[best]?.angle.toFixed(0)}° · DI ${diDb.toFixed(1)} dB${axisymHalf ? "" : " (2D)"} · ${pts.length} probes · r ${g.r} ${scene.units}`;
   }
 
@@ -249,12 +264,13 @@ export function mountProbes(element, state) {
     if (!store.length || store.count !== layout.length) return say("No samples yet: run the simulation with a broadband pulse (ricker or gauss) first.");
     const fmin = Math.max(1, parseFloat(fminIn.value) || 500), fmax = Math.max(fmin + 1, parseFloat(fmaxIn.value) || 3500);
     const NF = 48, FLOOR = -30;
-    const key = `${g.id}|${store.length}|${fmin}|${fmax}|${pts.length}`;
+    const far = farIn.checked && scene.mode === "axisym";
+    const key = `${g.id}|${store.length}|${fmin}|${fmax}|${pts.length}|${far}`;
     if (mapCache.key !== key) {
       const rows = [];
       for (let k = 0; k < NF; k++) {
         const fr = fmin + (fmax - fmin) * k / (NF - 1);
-        const mags = pts.map((p) => store.spectrum(p.i, fr));
+        const mags = ringSpectrum(scene, g, pts, fr);
         const m = Math.max(...mags, 1e-30);
         const axisymHalf = scene.mode === "axisym" && pts.every((p) => p.y >= g.cy - 1e-12);
         rows.push({ f: fr, db: mags.map((v) => Math.max(FLOOR, 20 * Math.log10(Math.max(v, 1e-30) / m))), max: m, best: pts[mags.indexOf(m)].angle, di: directivityIndex(pts, mags, axisymHalf) });
@@ -315,7 +331,7 @@ export function mountProbes(element, state) {
       for (let k = 0; k < NF; k++) ctx.fillRect(bx - 40, bt + bh - (k + 1) * bh / NF, 22 * Math.min(1, Math.max(0, rows[k].di / 20)), Math.ceil(bh / NF));
       ctx.fillStyle = "#9aa0ab"; ctx.fillText("source", bx - 24, bt + bh + 12); ctx.fillText("DI 0–20", bx - 44, bt + 10);
       const diAt = (f) => rows.reduce((a, b) => (Math.abs(b.f - f) < Math.abs(a.f - f) ? b : a)).di.toFixed(1);
-      info.textContent = `${g.id}: |P| per frequency (radius), each ring normalized to its loudest angle · DI ${diAt(fmin)} dB at ${fmin} Hz, ${diAt((fmin + fmax) / 2)} dB at ${((fmin + fmax) / 2).toFixed(0)} Hz, ${diAt(fmax)} dB at ${fmax} Hz` + (weakRows ? ` · ${weakRows} rings greyed: source below −20 dB there` : "");
+      info.textContent = `${g.id}: |P| per frequency (radius)${far ? ", far field" : ""}, each ring normalized to its loudest angle · DI ${diAt(fmin)} dB at ${fmin} Hz, ${diAt((fmin + fmax) / 2)} dB at ${((fmin + fmax) / 2).toFixed(0)} Hz, ${diAt(fmax)} dB at ${fmax} Hz` + (weakRows ? ` · ${weakRows} rings greyed: source below −20 dB there` : "");
       return;
     }
     const L = 52, R = 70, T = 10, B = 24;
