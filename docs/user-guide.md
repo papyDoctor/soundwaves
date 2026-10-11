@@ -200,7 +200,15 @@ green bar.
 
 By **reciprocity**, a microphone's reception pattern is the radiation pattern
 of a source placed at its capsule: draw the microphone, put a point source
-where the capsule is, and read the pattern and the DI. For a true far-field pattern the ring must be in the open
+where the capsule is, and read the pattern and the DI.
+
+A ring close to a large device sits in its near field, where the pattern is
+not yet the far-field one. In an axisymmetric scene, with a half ring (0° to
+180°) around everything in open air, the **far field** box of the spectrum
+pattern and of the Map extrapolates the ring's complex spectra to infinity
+(an expansion in outgoing spherical harmonics, exact outside the ring). It
+needs about two probes per harmonic: `n ≥ 2 (k r + 12)`, that is one probe
+per degree for a 1 m ring up to 3.5 kHz. For a true far-field pattern the ring must be in the open
 part of the scene, well away from the source compared with the wavelength and
 the source size, with `open` walls around.
 
