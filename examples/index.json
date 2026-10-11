@@ -28,6 +28,10 @@
     "title": "Free-standing plate, figure-of-eight pattern (planar)"
   },
   {
+    "file": "cardioid.sw",
+    "title": "Cardioid pair: directivity at low frequency by delay and polarity (planar)"
+  },
+  {
     "file": "tube_axisym.sw",
     "title": "Tube with a piston, open end (axisym)"
   },
