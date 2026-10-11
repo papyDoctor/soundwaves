@@ -1,5 +1,12 @@
 # SoundWaves
 
+[![tests](https://github.com/papyDoctor/soundwaves/actions/workflows/ci.yml/badge.svg)](https://github.com/papyDoctor/soundwaves/actions/workflows/ci.yml)
+[![live](https://img.shields.io/badge/live-sw.papydoctor.eu-4fa3ff)](https://sw.papydoctor.eu)
+[![license: MIT](https://img.shields.io/badge/license-MIT-3ec281)](LICENSE)
+[![Rust → wasm](https://img.shields.io/badge/engine-Rust%20%E2%86%92%20WebAssembly-dea584)](engine/)
+[![Go](https://img.shields.io/badge/server-Go-00add8)](cmd/soundwaves/)
+[![no npm](https://img.shields.io/badge/web%20app-plain%20ES%20modules%2C%20no%20npm-e2b93d)](internal/web/app/)
+
 Sound in a scene you draw, simulated in your browser. Draw walls, pick their
 materials, add a source and probes, press Run, and watch the pressure field
 propagate; put probes on a ring and read the radiation diagram. The wave
