@@ -32,6 +32,10 @@
     "title": "Cardioid pair: directivity at low frequency by delay and polarity (planar)"
   },
   {
+    "file": "cardioid_voice.sw",
+    "title": "Cardioid pair sized for the voice band, 3 cm apart (planar)"
+  },
+  {
     "file": "tube_axisym.sw",
     "title": "Tube with a piston, open end (axisym)"
   },

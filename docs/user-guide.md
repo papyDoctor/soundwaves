@@ -213,11 +213,13 @@ An opening is only directive when it is large compared with the wavelength
 whatever its shape. What works at low frequency is an **array**: several
 sources with their own delay (`t0`) and polarity (a negative `amp` inverts),
 or several piston materials with their own signals. Two sources `d` apart,
-the rear one inverted and delayed by `d/c`, give a cardioid whose shape barely
-depends on frequency as long as `d` is well under λ (`cardioid.sw`: 30 dB
-of rejection behind, from 250 Hz up); its level falls by 6 dB per octave
-towards the bass, which is the price. A line of sources longer than λ
-narrows the beam; delays along it steer it.
+the rear one inverted and delayed by `d/c`, give a cardioid (`cardioid.sw`:
+30 dB of rejection behind, from 250 Hz up); its level falls by 6 dB per
+octave towards the bass, which is the price. The spacing sets the top of the
+band: the shape holds while `d` stays under a quarter wavelength, and at
+`d = λ/2` the front cancels and lobes appear. So choose `d < c / (4 f_top)`:
+10 cm up to 850 Hz, 3 cm up to 2.9 kHz (`cardioid_voice.sw`). A line of
+sources longer than λ narrows the beam; delays along it steer it.
 
 ## 9. Axisymmetric mode
 
