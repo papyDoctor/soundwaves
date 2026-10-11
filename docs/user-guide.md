@@ -196,9 +196,11 @@ Linear is normalized to the maximum; dB counts down from it (floor −40 dB,
 part of the scene, well away from the source compared with the wavelength and
 the source size, with `open` walls around.
 
-The **Map** tab draws the pattern at every frequency of a band at once: angle
-across, frequency up, colour the level in dB relative to the loudest angle at
-that frequency (floor −30 dB). It is the tool for a frequency sweep: one run
+The **Map** tab draws the pattern at every frequency of a band at once: in
+`polar` layout the angle goes around and the frequency is the radius (the
+low end in the centre, the high end at the rim); in `flat` layout the angle
+goes across and the frequency up. The colour is the level in dB relative to
+the loudest angle at that frequency (floor −30 dB). It is the tool for a frequency sweep: one run
 with a broadband pulse, a `duration` long enough for the pulse to leave the
 scene, `fmax` at least 2.5 times the top of the band, and the band set under
 the map. A thin blue bar on the right shows the source's own level at each
